@@ -32,6 +32,7 @@ use App\Http\Controllers\ReportController;
         Route::prefix("employees")->name("employees.")->group(function () {
         Route::livewire("/", "pages::employees.all")->name("index");
         Route::livewire("/create", "pages::employees.create")->name("create");
+        Route::livewire("/{id}/bank-account", "pages::employees.bankaccount")->name("bank-account");
         Route::livewire("/{id}", "pages::employees.show")->name("show");
         Route::livewire("/{id}/edit", "pages::employees.edit")->name("edit");
        
