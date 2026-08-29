@@ -16,20 +16,8 @@ use App\Http\Controllers\ReportController;
         Route::livewire('/{id}/edit','pages::departments.designations.edit')->name('edit');
     });
 
-    Route::prefix("institutions")->name("institutions.")->group(function () {
-        Route::livewire("/", 'pages::institutions.all')->name('index');
-        Route::livewire("/create", 'pages::institutions.create')->name('create');
-        Route::livewire("/{id}", 'pages::institutions.show')->name('show');
-        Route::livewire("/{id}/edit", 'pages::institutions.edit')->name('edit');
-    });
 
-    Route::prefix("educations")->name("educations.")->group(function () {
-        Route::livewire("/", 'pages::educations.all')->name('index');
-        Route::livewire("/create", 'pages::educations.create')->name('create');
-        Route::livewire("/{id}", 'pages::educations.show')->name('show');
-        Route::livewire("/{id}/edit", 'pages::educations.edit')->name('edit');
-    });
-        Route::prefix("employees")->name("employees.")->group(function () {
+    Route::prefix("employees")->name("employees.")->group(function () {
         Route::livewire("/", "pages::employees.all")->name("index");
         Route::livewire("/create", "pages::employees.create")->name("create");
         Route::livewire("/{id}", "pages::employees.show")->name("show");

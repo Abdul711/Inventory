@@ -1,5 +1,6 @@
 <?php
-
+use App\Models\ApplicantWork;
+use App\Models\ApplicantEducation;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use Carbon\Carbon;
@@ -13,10 +14,12 @@ use App\Models\CandidateEducation;
 use App\Models\CandidateDocument;
 use App\Models\CandidateWork;
 use App\Models\Applicant;
+use Illuminate\Validation\Rule;
 use App\Models\CandidatePortfolio;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\ApplicationSend;
+use App\Jobs\GenerateCandidateDocuments;
 new class extends Component {
     use WithFileUploads;
 
@@ -129,24 +132,11 @@ new class extends Component {
         'gender' => 'female',
         'password' => '',
         'martial_status' => 'single',
-        /*
-        |--------------------------------------------------------------------------
-        | Address
-        |--------------------------------------------------------------------------
-        */
-
         'country' => '',
         'province' => '',
         'city' => '',
         'postal_code' => '',
         'address' => '',
-
-        /*
-        |--------------------------------------------------------------------------
-        | Professional
-        |--------------------------------------------------------------------------
-        */
-
         'current_company' => '',
         'current_designation' => '',
         'total_experience' => '',
@@ -155,17 +145,10 @@ new class extends Component {
         'expected_salary' => '',
         'notice_period' => '',
         'available_from' => '',
-
-        /*
-        |--------------------------------------------------------------------------
-        | Portfolio
-        |--------------------------------------------------------------------------
-        */
-
         'portfolio' => '',
         'github' => '',
         'linkedin' => '',
-
+        'id' => '',
         /*
         |--------------------------------------------------------------------------
         | Questions
@@ -221,23 +204,64 @@ new class extends Component {
     public function mount($id): void
     {
         $id = (int) $id;
-        $this->educations[] = [
-            'degree' => '',
-            'institute' => '',
-            'year' => '',
-            'grade' => '',
-            'type' => '',
-            'yearstart' => '',
-            'yearend' => '',
-        ];
 
-        $this->experiences[] = [
-            'company' => '',
-            'designation' => '',
-            'from' => '',
-            'to' => '',
-            'responsibilities' => '',
-        ];
+        if (auth('applicant')->check()) {
+            $applicantworks = auth('applicant')->user()->applicantworks;
+            $applicanteducations = auth('applicant')->user()->applicanteducations;
+
+            foreach ($applicanteducations as $applicanteducation) {
+                $this->educations[] = [
+                    'degree' => $applicanteducation->degree_name,
+                    'institute' => $applicanteducation->institute,
+                    'year' => '',
+                    'grade' => $applicanteducation->grade,
+                    'type' => $applicanteducation->institute_type,
+                    'yearstart' => $applicanteducation->graduate_start_year,
+                    'yearend' => $applicanteducation->graduate_end_year,
+                ];
+            }
+            //company
+            foreach ($applicantworks as $applicantwork) {
+                $this->experiences[] = [
+                    'company' => $applicantwork->company,
+                    'designation' => $applicantwork->designation,
+                    'from' => $applicantwork->start_date,
+                    'to' => $applicantwork->end_date,
+                    'responsibilities' => '',
+                ];
+            }
+            $this->form['id'] = auth('applicant')->user()->id;
+            $this->form['full_name'] = auth('applicant')->user()->full_name;
+            $this->form['email'] = auth('applicant')->user()->email;
+            $this->form['father_name'] = auth('applicant')->user()->father_name;
+            $this->form['phone'] = auth('applicant')->user()->phone;
+            $this->form['cnic'] = auth('applicant')->user()->cnic;
+            $this->form['linkedin'] = auth('applicant')->user()->linkedin;
+            $this->form['dob'] = auth('applicant')->user()->date_of_birth;
+            $this->form['martial_status'] = auth('applicant')->user()->martial_status;
+            $this->form['gender'] = auth('applicant')->user()->gender;
+            $this->form['address'] = auth('applicant')->user()->address;
+            $this->photo = auth('applicant')->user()?->photo;
+        } else {
+            $this->educations[] = [
+                'degree' => '',
+                'institute' => '',
+                'year' => '',
+                'grade' => '',
+                'type' => '',
+                'yearstart' => '',
+                'yearend' => '',
+            ];
+
+            $this->experiences[] = [
+                'company' => '',
+                'designation' => '',
+                'from' => '',
+                'to' => '',
+                'responsibilities' => '',
+            ];
+        }
+
         $jobData = \App\Models\JobPosting::findOrFail($id);
         $this->job = [
             'job_title' => $jobData->designation->name,
@@ -318,16 +342,24 @@ new class extends Component {
 
     protected function rules(): array
     {
+        $isNewApplicant = empty($this->form['id']);
+
         return [
             'form.full_name' => ['required', 'string', 'max:255'],
             'form.email' => ['required', 'email'],
             'form.phone' => ['required'],
             'form.address' => ['required'],
-            'photo' => ['required'],
+
+            'photo' => [$isNewApplicant ? 'required' : 'nullable'],
+
+            'form.cnic' => ['required', Rule::unique('applicants', 'cnic')->ignore($this->form['id'] ?? null)],
             'form.declaration' => ['accepted'],
             'educations.*.degree' => ['required'],
             'educations.*.type' => ['required'],
             'educations.*.yearstart' => ['required'],
+            'form.expected_salary' => ['required'],
+            'form.notice_period' => ['required'],
+            'form.current_salary' => ['required'],
         ];
     }
     protected function messages(): array
@@ -339,6 +371,7 @@ new class extends Component {
             'form.phone.required' => 'Please enter your phone number.',
             'form.address.required' => 'Please enter your current address.',
             'photo.required' => 'Please upload your photo.',
+
             'form.declaration.accepted' => 'Please accept the declaration before submitting.', // Education
             'educations.*.degree.required' => 'Please enter your degree.',
             'educations.*.institute.required' => 'Please enter your institute name.',
@@ -403,256 +436,289 @@ new class extends Component {
         ini_set('max_execution_time', '600');
         ini_set('memory_limit', '512M');
 
-        $this->validate();
-        $totalExperience = $this->calculateTotalExperience($this->experiences);
+        try {
+            $this->validate();
+            $totalExperience = $this->calculateTotalExperience($this->experiences);
 
-        // $this->photo->getSize();
-        $experience_in_year = $totalExperience['years'];
+            // $this->photo->getSize();
+            $experience_in_year = $totalExperience['years'];
 
-        if ($experience_in_year < $this->job['experience']) {
-            session()->flash('error', 'You Are Not Qualified');
-            return;
-        }
-        $jobId = $this->job['id'];
-        $bio = 'I am' . $this->form['full_name'] . ' ';
-
-        $applicant = Applicant::where('email', $this->form['email'])->first();
-
-        if ($applicant) {
-            $applicant_id = $applicant->id;
-            $fileName = $applicant->photo;
-        } else {
-            if ($this->photo) {
-                $fileName = 'candidate-' . time() . '-' . Str::random(8) . '.' . $this->photo->getClientOriginalExtension();
-                $photoPath = $this->photo->storeAs('candidate', $fileName, 'public');
+            if ($experience_in_year < $this->job['experience']) {
+                session()->flash('error', 'You Are Not Qualified');
+                return;
             }
-            $applicant = Applicant::create([
-                'full_name' => $this->form['full_name'],
-                'father_name' => $this->form['father_name'],
-                'email' => $this->form['email'],
-                'phone' => $this->form['phone'],
-                'password' => Hash::make('123456789'),
-                'date_of_birth' => $this->form['dob'],
-                'cnic' => $this->form['cnic'],
-                'address' => $this->form['address'],
-                'gender' => $this->form['gender'],
-                'bio' => $this->form['about_yourself'],
-                'martial_status' => $this->form['martial_status'],
-                'photo' => $fileName,
+            $jobId = $this->job['id'];
+            $bio = 'I am' . $this->form['full_name'] . ' ';
 
-                'linkedin' => $this->form['linkedin'],
-            ]);
-            $applicant_id = $applicant->id;
-        }
+            $applicant = Applicant::where('email', $this->form['email'])->first();
 
-        $count = JobApplication::where('applicant_id', $applicant_id)
-            ->where('job_posting_id', $jobId)
+            if ($applicant) {
+                $applicant_id = $applicant->id;
+                $fileName = $applicant->photo;
+            } else {
+                $destinationDirectory = public_path('storage/applicant');
+                if (!is_dir($destinationDirectory)) {
+                    mkdir($destinationDirectory, 0755, true);
+                }
+                if ($this->photo) {
+                    $fileName = 'applicant-' . time() . '-' . Str::random(8) . '.' . $this->photo->getClientOriginalExtension();
+                    $photoPath = $this->photo->storeAs('applicant', $fileName, 'public');
+                }
 
-            ->count();
-        if ($count > 0) {
-            session()->flash('error', 'You Have Already Applied');
-            return;
-        }
-        $applicationData = DB::transaction(function () use ($jobId, $fileName, $totalExperience, $applicant) {
-            $lasteducation = end($this->educations);
-            $lastexperience = end($this->experiences);
-
-            $application = JobApplication::create([
-                'applicant_id' => $applicant->id,
-                'job_posting_id' => $jobId,
-                'last_education' => $lasteducation['degree'],
-                'last_institute' => $lasteducation['institute'],
-                'current_company' => $lastexperience['company'],
-                'current_salary' => $this->form['current_salary'],
-                'expected_salary' => $this->form['expected_salary'],
-                'notice_period' => $this->form['notice_period'],
-                'available_from' => $this->form['available_from'],
-                'month_of_exprience' => $totalExperience['years'] * 12,
-            ]);
-
-            foreach ($this->educations as $candidateeducation) {
-                $degree = $candidateeducation['degree'];
-                $institute = $candidateeducation['institute'];
-                $grade = $candidateeducation['grade'];
-                $insurance_type = $candidateeducation['type'];
-                $yearstart = $candidateeducation['yearstart'];
-                $yearend = $candidateeducation['yearend'];
-
-                $pdf = Pdf::loadView('pdf.education_certificate', [
-                    'candidate' => $this->form['full_name'],
-                    'gender' => $this->form['gender'],
-                    'institute' => $institute,
-                    'education' => $degree,
-                    'endyear' => $yearend,
-                    'yearstart' => $yearstart,
-                    'grade' => $this->grade($grade, $insurance_type),
+                $applicant = Applicant::create([
+                    'full_name' => $this->form['full_name'],
                     'father_name' => $this->form['father_name'],
-                    'applicannt_photo' => $applicant->photo,
-                    'insurance_type' => $insurance_type,
-                ]);
-
-                $fileName = 'education-' . str()->slug($this->form['full_name']) . time() . $degree . '.pdf';
-
-                $path = 'documents/' . str()->slug($this->form['full_name']) . '/' . $fileName;
-
-                Storage::disk('public')->put($path, $pdf->output());
-
-                $fullPath = Storage::disk('public')->path($path);
-
-                $size = filesize($fullPath);
-
-                $mimeType = mime_content_type($fullPath);
-                $this->documents[] = [
-                    'job_application_id' => $application->id,
-                    'document_type' => 'degree',
-                    'file_name' => $degree . ' Certificate',
-                    'file_size' => $size,
-                    'file_path' => 'storage/' . $path,
-                    'mime_type' => $mimeType,
-                ];
-
-                CandidateEducation::create([
-                    'job_application_id' => $application->id,
-                    'degree_name' => $degree,
-                    'grade' => $this->grade($grade, $insurance_type),
-                    'institute' => $institute,
-                    'institute_type' => $insurance_type,
-                    'graduate_end_year' => $yearend,
-                    'graduate_start_year' => $yearstart,
-                ]);
-            }
-
-            foreach ($this->experiences as $candidate_exp) {
-                $from = Carbon::parse($candidate_exp['from']);
-                $to = Carbon::parse($candidate_exp['to']);
-                $difference = $from->diff($to);
-                $year = $difference->y;
-                $month_of_experience = $year * 12;
-                $experience = "{$difference->y} years, {$difference->m} months";
-                $pdf = Pdf::loadView('pdf.experience_letter', [
-                    'candidate' => $this->form['full_name'],
-                    'gender' => $this->form['gender'],
+                    'email' => $this->form['email'],
+                    'phone' => $this->form['phone'],
+                    'password' => Hash::make('123456789'),
                     'date_of_birth' => $this->form['dob'],
-                    'company_name' => $candidate_exp['company'],
-                    'from' => $from,
-                    'to' => $to,
-                    'designation' => $candidate_exp['designation'],
-                    'experience' => $experience,
-                    'father_name' => $this->form['father_name'],
-                    'applicannt_photo' => $applicant->photo,
-                ]);
-                $letter_name = 'experience_letter-' . str()->slug($this->form['full_name']) . time() . $degree . '.pdf';
-
-                $path = 'documents/' . str()->slug($this->form['full_name']) . '/' . $letter_name;
-
-                Storage::disk('public')->put($path, $pdf->output());
-
-                $fullPath = Storage::disk('public')->path($path);
-                $mimeType = mime_content_type($fullPath);
-                $size = filesize($fullPath);
-                CandidateWork::create([
-                    'job_application_id' => $application->id,
-                    'company' => $candidate_exp['company'],
-                    'start_date' => $from,
-                    'end_date' => $to,
-                    'designation' => $candidate_exp['designation'],
-                    'month_of_experience' => $month_of_experience,
-                ]);
-
-                $this->documents[] = [
-                    'job_application_id' => $application->id,
-                    'document_type' => 'experience_letter',
-                    'file_name' => 'Experience Letter',
-                    'file_size' => $size,
-                    'file_path' => 'storage/' . $path,
-                    'mime_type' => $mimeType,
-                ];
-            }
-            $name = str()->slug($this->form['full_name']);
-            $html = view('candidate.card', [
-                'name' => $this->form['full_name'],
-                'father_name' => $this->form['father_name'],
-                'gender' => $this->form['gender'],
-                'date_of_birth' => $this->form['dob'],
-                'expiry_date' => Carbon::today()->addYears(5)->format('Y-m-d'),
-                'issue_date' => Carbon::today()->format('Y-m-d'),
-                'address' => $this->form['address'],
-                'applicannt_photo' => $applicant->photo,
-                'cnic' => $this->form['cnic'],
-            ])->render();
-
-            $relativePath = 'documents/' . str()->slug($this->form['full_name']) . "/candidate-cnic-{$name}.png";
-
-            Browsershot::html($html)
-                ->windowSize(1000, 1000)
-                ->deviceScaleFactor(2)
-                ->save(Storage::disk('public')->path($relativePath));
-            $size = Storage::disk('public')->size($relativePath);
-            $mimeType = Storage::disk('public')->mimeType($relativePath);
-            $this->documents[] = [
-                'job_application_id' => $application->id,
-                'document_type' => 'national_id',
-                'file_name' => 'CNIC',
-                'file_size' => $size,
-                'file_path' => 'storage/' . $relativePath,
-                'mime_type' => $mimeType,
-            ];
-
-            $data = [
-                'candidate' => $this->form['full_name'],
-                'email' => $this->form['email'],
-                'phone' => $this->form['phone'],
-                'linkedin' => $this->form['linkedin'],
-                'photo' => $applicant->photo,
-                'experiences' => $application->works,
-                'educations' => $application->educations,
-                'personal_details' => [
-                    'father_name' => $this->form['father_name'],
-                    'dob' => date('d F Y', strtotime($this->form['dob'])),
-                    'gender' => $this->form['gender'],
                     'cnic' => $this->form['cnic'],
                     'address' => $this->form['address'],
-                ],
-            ];
+                    'gender' => $this->form['gender'],
+                    'bio' => $this->form['about_yourself'],
+                    'martial_status' => $this->form['martial_status'],
+                    'photo' => $fileName,
 
-            $pdf = Pdf::loadView('pdf.resume', $data)->setPaper('a4', 'portrait');
+                    'linkedin' => $this->form['linkedin'],
+                ]);
+                $applicant_id = $applicant->id;
+            }
 
-            $fileName = 'resume-' . str()->slug($application->full_name) . time() . '.pdf';
-            $path = 'documents/' . str()->slug($application->full_name) . '/' . $fileName;
+            $count = JobApplication::where('applicant_id', $applicant_id)
+                ->where('job_posting_id', $jobId)
 
-            Storage::disk('public')->put($path, $pdf->output());
+                ->count();
+            if ($count > 0) {
+                session()->flash('error', 'You Have Already Applied');
+                return;
+            }
+            $applicationData = DB::transaction(function () use ($jobId, $fileName, $totalExperience, $applicant) {
+                $lasteducation = end($this->educations);
+                $lastexperience = end($this->experiences);
 
-            $fullPath = Storage::disk('public')->path($path);
-            $mimeType = mime_content_type($fullPath);
-            $size = filesize($fullPath);
-            $this->documents[] = [
-                'job_application_id' => $application->id,
-                'document_type' => 'resume',
-                'file_name' => 'Resume',
-                'file_size' => $size,
-                'file_path' => 'storage/' . $path,
-                'mime_type' => $mimeType,
-            ];
-            return $application;
-        });
+                $application = JobApplication::create([
+                    'applicant_id' => $applicant->id,
+                    'job_posting_id' => $jobId,
+                    'last_education' => $lasteducation['degree'],
+                    'last_institute' => $lasteducation['institute'],
+                    'current_company' => $lastexperience['company'],
+                    'current_salary' => $this->form['current_salary'],
+                    'expected_salary' => $this->form['expected_salary'],
+                    'notice_period' => $this->form['notice_period'],
+                    'available_from' => $this->form['available_from'],
+                    'month_of_exprience' => $totalExperience['years'] * 12,
+                ]);
 
-        foreach ($this->documents as $document) {
-            CandidateDocument::create([
-                'job_application_id' => $document['job_application_id'],
-                'document_type' => $document['document_type'],
-                'file_name' => $document['file_name'],
-                'file_size' => $document['file_size'],
-                'file_path' => $document['file_path'],
-                'mime_type' => $document['mime_type'],
-            ]);
+                foreach ($this->educations as $candidateeducation) {
+                    $degree = $candidateeducation['degree'];
+                    $institute = $candidateeducation['institute'];
+                    $grade = $candidateeducation['grade'];
+                    $insurance_type = $candidateeducation['type'];
+                    $yearstart = $candidateeducation['yearstart'];
+                    $yearend = $candidateeducation['yearend'];
+                    /*
+                    $pdf = Pdf::loadView('pdf.education_certificate', [
+                        'candidate' => $this->form['full_name'],
+                        'gender' => $this->form['gender'],
+                        'institute' => $institute,
+                        'education' => $degree,
+                        'endyear' => $yearend,
+                        'yearstart' => $yearstart,
+                        'grade' => $this->grade($grade, $insurance_type),
+                        'father_name' => $this->form['father_name'],
+                        'applicannt_photo' => $applicant->photo,
+                        'insurance_type' => $insurance_type,
+                    ]);
+
+                    $fileName = 'education-' . str()->slug($this->form['full_name']) . time() . $degree . '.pdf';
+
+                    $path = 'documents/' . str()->slug($this->form['full_name']) . '/' . $fileName;
+
+                    Storage::disk('public')->put($path, $pdf->output());
+
+                    $fullPath = Storage::disk('public')->path($path);
+
+                    $size = filesize($fullPath);
+
+                    $mimeType = mime_content_type($fullPath);
+                    $this->documents[] = [
+                        'job_application_id' => $application->id,
+                        'document_type' => 'degree',
+                        'file_name' => $degree . ' Certificate',
+                        'file_size' => $size,
+                        'file_path' => 'storage/' . $path,
+                        'mime_type' => $mimeType,
+                    ];
+*/
+                    ApplicantEducation::firstOrCreate([
+                        'applicant_id' => $applicant->id,
+                        'degree_name' => $degree,
+                        'grade' => $grade,
+                        'institute' => $institute,
+                        'institute_type' => $insurance_type,
+                        'graduate_end_year' => $yearend,
+                        'graduate_start_year' => $yearstart,
+                    ]);
+
+                    CandidateEducation::firstOrCreate([
+                        'job_application_id' => $application->id,
+                        'degree_name' => $degree,
+                        'grade' => $this->grade($grade, $insurance_type),
+                        'institute' => $institute,
+                        'institute_type' => $insurance_type,
+                        'graduate_end_year' => $yearend,
+                        'graduate_start_year' => $yearstart,
+                    ]);
+                }
+
+                foreach ($this->experiences as $candidate_exp) {
+                    $from = Carbon::parse($candidate_exp['from']);
+                    $to = Carbon::parse($candidate_exp['to']);
+                    $difference = $from->diff($to);
+                    $year = $difference->y;
+                    $month_of_experience = $year * 12;
+                    $experience = "{$difference->y} years, {$difference->m} months";
+                    /*
+                    $pdf = Pdf::loadView('pdf.experience_letter', [
+                        'candidate' => $this->form['full_name'],
+                        'gender' => $this->form['gender'],
+                        'date_of_birth' => $this->form['dob'],
+                        'company_name' => $candidate_exp['company'],
+                        'from' => $from,
+                        'to' => $to,
+                        'designation' => $candidate_exp['designation'],
+                        'experience' => $experience,
+                        'father_name' => $this->form['father_name'],
+                        'applicannt_photo' => $applicant->photo,
+                    ]);
+                    $letter_name = 'experience_letter-' . str()->slug($this->form['full_name']) . time() . $degree . '.pdf';
+
+                    $path = 'documents/' . str()->slug($this->form['full_name']) . '/' . $letter_name;
+
+                    Storage::disk('public')->put($path, $pdf->output());
+
+                    $fullPath = Storage::disk('public')->path($path);
+                    $mimeType = mime_content_type($fullPath);
+                    $size = filesize($fullPath);
+                    */
+                    CandidateWork::firstOrCreate([
+                        'job_application_id' => $application->id,
+                        'company' => $candidate_exp['company'],
+                        'start_date' => $from,
+                        'end_date' => $to,
+                        'designation' => $candidate_exp['designation'],
+                        'month_of_experience' => $month_of_experience,
+                    ]);
+                    ApplicantWork::firstOrCreate([
+                        'applicant_id' => $applicant->id,
+                        'company' => $candidate_exp['company'],
+                        'start_date' => $from,
+                        'end_date' => $to,
+                        'designation' => $candidate_exp['designation'],
+                        'month_of_experience' => $month_of_experience,
+                    ]);
+                    /*
+                    $this->documents[] = [
+                        'job_application_id' => $application->id,
+                        'document_type' => 'experience_letter',
+                        'file_name' => 'Experience Letter',
+                        'file_size' => $size,
+                        'file_path' => 'storage/' . $path,
+                        'mime_type' => $mimeType,
+                    ];
+                    */
+                }
+                $name = str()->slug($this->form['full_name']);
+                $html = view('candidate.card', [
+                    'name' => $this->form['full_name'],
+                    'father_name' => $this->form['father_name'],
+                    'gender' => $this->form['gender'],
+                    'date_of_birth' => $this->form['dob'],
+                    'expiry_date' => Carbon::today()->addYears(5)->format('Y-m-d'),
+                    'issue_date' => Carbon::today()->format('Y-m-d'),
+                    'address' => $this->form['address'],
+                    'applicannt_photo' => $applicant->photo,
+                    'cnic' => $this->form['cnic'],
+                ])->render();
+
+                $relativePath = 'documents/' . str()->slug($this->form['full_name']) . "/candidate-cnic-{$name}.png";
+                /*
+                Browsershot::html($html)
+                    ->windowSize(1000, 1000)
+                    ->deviceScaleFactor(2)
+                    ->save(Storage::disk('public')->path($relativePath));
+                $size = Storage::disk('public')->size($relativePath);
+                $mimeType = Storage::disk('public')->mimeType($relativePath);
+                $this->documents[] = [
+                    'job_application_id' => $application->id,
+                    'document_type' => 'national_id',
+                    'file_name' => 'CNIC',
+                    'file_size' => $size,
+                    'file_path' => 'storage/' . $relativePath,
+                    'mime_type' => $mimeType,
+                ];
+
+                $data = [
+                    'candidate' => $this->form['full_name'],
+                    'email' => $this->form['email'],
+                    'phone' => $this->form['phone'],
+                    'linkedin' => $this->form['linkedin'],
+                    'photo' => $applicant->photo,
+                    'experiences' => $application->works,
+                    'educations' => $application->educations,
+                    'personal_details' => [
+                        'father_name' => $this->form['father_name'],
+                        'dob' => date('d F Y', strtotime($this->form['dob'])),
+                        'gender' => $this->form['gender'],
+                        'cnic' => $this->form['cnic'],
+                        'address' => $this->form['address'],
+                    ],
+                ];
+
+                $pdf = Pdf::loadView('pdf.resume', $data)->setPaper('a4', 'portrait');
+
+                $fileName = 'resume-' . str()->slug($application->full_name) . time() . '.pdf';
+                $path = 'documents/' . str()->slug($application->full_name) . '/' . $fileName;
+
+                Storage::disk('public')->put($path, $pdf->output());
+
+                $fullPath = Storage::disk('public')->path($path);
+                $mimeType = mime_content_type($fullPath);
+                $size = filesize($fullPath);
+                $this->documents[] = [
+                    'job_application_id' => $application->id,
+                    'document_type' => 'resume',
+                    'file_name' => 'Resume',
+                    'file_size' => $size,
+                    'file_path' => 'storage/' . $path,
+                    'mime_type' => $mimeType,
+                ];
+                */
+                return $application;
+            });
+            /*
+            foreach ($this->documents as $document) {
+                CandidateDocument::firstOrCreate([
+                    'job_application_id' => $document['job_application_id'],
+                    'document_type' => $document['document_type'],
+                    'file_name' => $document['file_name'],
+                    'file_size' => $document['file_size'],
+                    'file_path' => $document['file_path'],
+                    'mime_type' => $document['mime_type'],
+                ]);
+            }*/
+            GenerateCandidateDocuments::dispatch($applicationData->id);
+            /*
+            $this->reset(['form', 'photo', 'coverLetter', 'certificates']);
+            */
+            session()->flash(
+                'success',
+
+                'Your application has been submitted successfully.',
+            );
+        } catch (Exception $e) {
+            dd($e->getMessage());
         }
-        dd($applicationData);
-        $this->reset(['form', 'educations', 'experiences', 'documents', 'photo', 'coverLetter', 'certificates']);
-        session()->flash(
-            'success',
-
-            'Your application has been submitted successfully.',
-        );
     }
 };
 
@@ -871,6 +937,9 @@ new class extends Component {
                             <label class="form-label fw-semibold">CNIC</label>
                             <input wire:model.live="form.cnic" class="form-control"
                                 placeholder="Enter your CNIC number">
+                            @error('form.cnic')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
                         </div>
                         <div class="col-md-6 mb-4">
                             <label class="form-label fw-semibold">Date of Birth</label>
@@ -944,16 +1013,27 @@ new class extends Component {
                             <input wire:model.live="form.current_salary" class="form-control"
                                 placeholder="Enter current salary">
                         </div>
+                        @error('form.current_salary')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+
                         <div class="col-md-6 mb-4">
                             <label class="form-label fw-semibold">Expected Salary (PKR)</label>
                             <input wire:model.live="form.expected_salary" class="form-control"
                                 placeholder="Enter expected salary">
                         </div>
+                        @error('form.expected_salary')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
                         <div class="col-md-6 mb-4">
                             <label class="form-label fw-semibold">Notice Period</label>
                             <input wire:model.live="form.notice_period" class="form-control"
                                 placeholder="e.g., 15 days, 1 month">
                         </div>
+                        @error('form.notice_period')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+
                         <div class="col-md-6 mb-4">
                             <label class="form-label fw-semibold">Available From</label>
                             <input type="date" wire:model.live="form.available_from" class="form-control">
@@ -1153,18 +1233,29 @@ new class extends Component {
                         </div>
                         @if ($photo)
                             <div class="mt-3">
-                                <img src="{{ $photo->temporaryUrl() }}" alt="Preview" class="img-thumbnail"
-                                    style="width: 200px; height: 200px; object-fit: cover;">
-                                <button type="button" wire:click="removePhoto" class="btn btn-danger btn-sm mt-2">
-                                    Remove
-                                </button>
-
+                                @if (empty($form['id']))
+                                    <img src="{{ $photo->temporaryUrl() }}" alt="Preview" class="img-thumbnail"
+                                        style="width: 200px; height: 200px; object-fit: cover;">
+                                    <button type="button" wire:click="removePhoto"
+                                        class="btn btn-danger btn-sm mt-2">
+                                        Remove
+                                    </button>
+                                @else
+                                    <img src="{{ asset('storage/applicant/' . $photo) }}" alt="Preview"
+                                        class="img-thumbnail" style="width: 200px; height: 200px; object-fit: cover;">
+                                    <button type="button" wire:click="removePhoto"
+                                        class="btn btn-danger btn-sm mt-2">
+                                        Remove
+                                    </button>
+                                @endif
                             </div>
-                            <div class="alert alert-success mt-3 mb-0">
-                                <i class="bi bi-check-circle-fill me-2"></i>
-                                {{ $photo->getClientOriginalName() }}
-                                ({{ number_format($photo->getSize() / 1024, 2) }} KB)
-                            </div>
+                            @if (empty($form['id']))
+                                <div class="alert alert-success mt-3 mb-0">
+                                    <i class="bi bi-check-circle-fill me-2"></i>
+                                    {{ $photo->getClientOriginalName() }}
+                                    ({{ number_format($photo->getSize() / 1024, 2) }} KB)
+                                </div>
+                            @endif
                         @endif
                     </div>
 

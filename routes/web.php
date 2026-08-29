@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\GoogleDrive;
 use App\Http\Controllers\InvoiceController;
-
+use App\Http\Controllers\ApplicantController;
 
 
 Auth::routes();
@@ -20,7 +20,7 @@ Route::get('/home', [HomeController::class, 'index'])
 | Frontend Routes
 |--------------------------------------------------------------------------
 */
-
+Route::get("transfer",[ApplicantController::class,'transfer']);
 Route::livewire("/", "pages::frontend.home")->name("front");
 Route::livewire("/cart", "pages::frontend.cart")->name("cart");
 

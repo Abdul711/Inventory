@@ -262,7 +262,7 @@ new class extends Component {
                 <div class="col-md-3 text-center mb-4">
 
                     @if (!empty($applicant['photo']))
-                        <img src="{{ asset('storage/candidate/' . $applicant['photo']) }}"
+                        <img src="{{ asset('storage/applicant/' . $applicant['photo']) }}"
                             class="img-thumbnail rounded-4"
                             style="
                                 width:180px;

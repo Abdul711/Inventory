@@ -29,12 +29,25 @@ public function educations()
 
 public function works()
 {
-    return $this->hasMany(
+        return $this->hasMany(
         CandidateWork::class,
         'job_application_id'
     );
 }
+public function applicantworks(){
 
+   return $this->hasMany(
+        ApplicantWorK::class,
+        'applicant_id'
+    )->orderBy('created_at');
+}
+public function applicanteducations()
+{
+    return $this->hasMany(
+        ApplicantEducation::class,
+        'applicant_id'
+    );
+}
 public function documents()
 {
     return $this->hasMany(
@@ -42,4 +55,6 @@ public function documents()
         'job_application_id'
     );
 }
+
+
 }

@@ -136,12 +136,19 @@
                 </div>
 
                 <div class="content">
-
+                    @php
+                        $photoPath = public_path('storage/applicant/' . $photo);
+                    @endphp
+                    @if (!empty($photo))
+                        <img src="{{ public_path('storage/applicant/' . $photo) }}" class="photo"
+                            alt="Candidate Photo">
+                    @endif
                     <p>
                         This is to certify that
                         <span class="highlight">
                             {{ $candidate }}
                         </span>
+
 
                         @if ($gender == 'male')
                             S/O
@@ -152,9 +159,7 @@
                         <span class="highlight">
                             {{ $father_name }}
                         </span>
-
                         has worked with
-
                         <span class="highlight">
                             {{ $company_name }}
                         </span>
@@ -162,14 +167,12 @@
                         <span class="highlight">
                             {{ $designation }}
                         </span>
+                        <br>
                         from
-
                         <span class="highlight">
                             {{ date('d-F-Y', strtotime($from)) }}
                         </span>
-
                         to
-
                         <span class="highlight">
                             {{ date('d-F-Y', strtotime($to)) }}
                         </span>.
@@ -190,7 +193,10 @@
                             <td>{{ $date_of_birth }}</td>
                         </tr>
 
-
+                        <tr>
+                            <td>CNIC</td>
+                            <td>{{ $cnic }}</td>
+                        </tr>
 
 
 

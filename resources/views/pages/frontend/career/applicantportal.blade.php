@@ -171,6 +171,7 @@ new class extends Component {
     }
 
     // Saved Jobs
+    public function goBack() {}
     public function getSavedJobsProperty()
     {
         return [
@@ -289,6 +290,10 @@ new class extends Component {
     {
         $this->selectedApplicationId = null;
         $this->selectedInterviewId = null;
+    }
+    public function emit()
+    {
+        return redirect()->route('applicantauth');
     }
     // --------------------------------------------
 
@@ -489,7 +494,7 @@ new class extends Component {
                         class="btn btn-light btn-sm rounded-pill px-3 px-md-4 fw-medium shadow-sm">
                         <i class="bi bi-arrow-left me-1"></i> Back
                     </button>
-                    <button type="button" wire:click="$emit('logout')"
+                    <button type="button" wire:click="emit('logout')"
                         class="btn btn-light btn-sm rounded-pill px-3 px-md-4 fw-medium shadow-sm">
                         <i class="bi bi-box-arrow-right me-1"></i> Logout
                     </button>
@@ -1125,7 +1130,7 @@ new class extends Component {
                     <div class="card border-0 shadow rounded-4">
                         <div class="card-body p-3 p-md-4 text-center">
                             <div class="position-relative d-inline-block mb-3">
-                                <img src="https://ui-avatars.com/api/?name=John+Doe&size=100&background=0D6EFD&color=fff"
+                                <img src="{{ asset('storage/applicant/' . auth('applicant')->user()->photo) }}"
                                     alt="Profile" class="rounded-circle"
                                     style="width: 80px; height: 80px; object-fit: cover;">
                                 <button
@@ -1133,8 +1138,9 @@ new class extends Component {
                                     <i class="bi bi-camera small"></i>
                                 </button>
                             </div>
-                            <h5 class="fw-bold fs-6">John Doe</h5>
-                            <p class="text-muted small">Senior Laravel Developer</p>
+                            <h5 class="fw-bold fs-6">{{ auth('applicant')->user()->full_name }}</h5>
+                            <p class="text-muted small">
+                                {{ auth('applicant')->user()->applicantworks->last()->designation }}</p>
                             <div class="d-flex justify-content-center gap-1 flex-wrap">
                                 <span class="badge bg-primary rounded-pill small">5+ Years</span>
                                 <span class="badge bg-success rounded-pill small">Available</span>
@@ -1174,42 +1180,94 @@ new class extends Component {
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold small">Full Name</label>
-                                        <input type="text" class="form-control form-control-sm" value="John Doe">
+                                        <input type="text" class="form-control form-control-sm"
+                                            value="{{ auth('applicant')->user()->full_name }}">
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold small">Email</label>
                                         <input type="email" class="form-control form-control-sm"
-                                            value="john@example.com">
+                                            value="{{ auth('applicant')->user()->email }}">
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold small">Phone</label>
                                         <input type="text" class="form-control form-control-sm"
-                                            value="+92 300 1234567">
+                                            value="{{ auth('applicant')->user()->phone }}">
                                     </div>
                                     <div class="col-md-6">
-                                        <label class="form-label fw-semibold small">Location</label>
+                                        <label class="form-label fw-semibold small">Father Name</label>
                                         <input type="text" class="form-control form-control-sm"
-                                            value="Karachi, Pakistan">
+                                            value="{{ auth('applicant')->user()->father_name }}">
                                     </div>
                                     <div class="col-md-6">
-                                        <label class="form-label fw-semibold small">Current Company</label>
+                                        <label class="form-label fw-semibold small">CNIC</label>
                                         <input type="text" class="form-control form-control-sm"
-                                            value="Tech Solutions Inc.">
+                                            value="{{ auth('applicant')->user()->cnic }}">
                                     </div>
                                     <div class="col-md-6">
-                                        <label class="form-label fw-semibold small">Current Designation</label>
+                                        <label class="form-label fw-semibold small">Date Of Birth</label>
+                                        <input type="date" class="form-control form-control-sm"
+                                            value="{{ auth('applicant')->user()->date_of_birth }}">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold small">LinkedIn</label>
                                         <input type="text" class="form-control form-control-sm"
-                                            value="Senior Developer">
+                                            value="{{ auth('applicant')->user()->linkedin }}">
                                     </div>
                                     <div class="col-md-6">
-                                        <label class="form-label fw-semibold small">Total Experience</label>
-                                        <input type="text" class="form-control form-control-sm" value="5 Years">
+                                        <label class="form-label fw-semibold small">Password</label>
+                                        <input type="text" class="form-control form-control-sm" value="">
                                     </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label fw-semibold small">Expected Salary</label>
-                                        <input type="text" class="form-control form-control-sm"
-                                            value="PKR 250,000">
+                                    <div class="row mt-3">
+
+                                        <!-- Marital Status -->
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label d-block">Marital Status</label>
+
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="radio" name="marital_status"
+                                                    id="married" value="Married">
+
+                                                <label class="form-check-label" for="married">
+                                                    Married
+                                                </label>
+                                            </div>
+
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="radio" name="marital_status"
+                                                    id="unmarried" value="Unmarried">
+
+                                                <label class="form-check-label" for="unmarried">
+                                                    Unmarried
+                                                </label>
+                                            </div>
+                                        </div>
+
+
+                                        <!-- Gender -->
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label d-block">Gender</label>
+
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="radio" name="gender"
+                                                    id="male" value="Male">
+
+                                                <label class="form-check-label" for="male">
+                                                    Male
+                                                </label>
+                                            </div>
+
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="radio" name="gender"
+                                                    id="female" value="Female">
+
+                                                <label class="form-check-label" for="female">
+                                                    Female
+                                                </label>
+                                            </div>
+                                        </div>
+
                                     </div>
+
                                     <div class="col-12">
                                         <label class="form-label fw-semibold small">About</label>
                                         <textarea rows="2" class="form-control form-control-sm">Experienced Laravel developer with 5+ years of experience...</textarea>

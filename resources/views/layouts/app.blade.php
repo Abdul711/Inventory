@@ -599,37 +599,7 @@
                 </div>
             </li>
 
-            <li
-                class="nav-item sidebar-dropdown {{ request()->routeIs('educations.*') || request()->routeIs('institutions.*') ? 'open' : '' }}">
-                <a href="javascript:void(0)" class="nav-link dropdown-toggle-btn">
-                    <span><i class="bi bi-mortarboard-fill"></i> Education</span>
-                    <i
-                        class="bi bi-chevron-down dropdown-arrow {{ request()->routeIs('educations.*') || request()->routeIs('institutions.*') ? 'rotate' : '' }}"></i>
-                </a>
 
-                <div
-                    class="sidebar-dropdown-menu {{ request()->routeIs('educations.*') || request()->routeIs('institutions.*') ? 'show' : '' }}">
-                    <a href="{{ adminRoute('institutions.index') }}"
-                        class="nav-link {{ activeRoute('institutions.index') }}">
-                        <i class="bi bi-building-fill"></i> All Institutions
-                    </a>
-
-                    <a href="{{ adminRoute('institutions.create') }}"
-                        class="nav-link {{ activeRoute('institutions.create') }}">
-                        <i class="bi bi-building-add"></i> Add Institution
-                    </a>
-
-                    <a href="{{ adminRoute('educations.index') }}"
-                        class="nav-link {{ activeRoute('educations.index') }}">
-                        <i class="bi bi-list-ul"></i> All Educations
-                    </a>
-
-                    <a href="{{ adminRoute('educations.create') }}"
-                        class="nav-link {{ activeRoute('educations.create') }}">
-                        <i class="bi bi-plus-circle-fill"></i> Add Education
-                    </a>
-                </div>
-            </li>
 
             <li class="nav-item sidebar-dropdown {{ openRoute('shipments.*') }}">
                 <a href="javascript:void(0)" class="nav-link dropdown-toggle-btn">

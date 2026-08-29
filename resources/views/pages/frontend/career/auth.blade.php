@@ -106,8 +106,8 @@ new class extends Component {
         $photoPath = null;
 
         if ($this->reg_photo) {
-            $fileName = 'candidate-' . time() . '-' . str()->random(8) . '.' . $this->reg_photo->getClientOriginalExtension();
-            $photoPath = $this->reg_photo->storeAs('candidate', 'public');
+            $fileName = 'applicant-' . time() . '-' . str()->random(8) . '.' . $this->reg_photo->getClientOriginalExtension();
+            $photoPath = $this->reg_photo->storeAs('applicant', 'public');
         }
 
         $user = Applicant::create([

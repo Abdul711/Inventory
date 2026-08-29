@@ -64,7 +64,10 @@ new class extends Component {
             'interviewer_id' => ['nullable', 'required_if:status,interview', 'exists:users,id'],
             'scheduled_at' => ['nullable', 'required_if:status,interview', 'date'],
             'type' => ['nullable', 'required_if:status,interview', 'in:online,physical,phone'],
-            'meeting_link' => ['nullable', 'required_if:type,online', 'url', 'max:255'],
+            'meeting_link' => ['nullable', 'required_if:type,online', 
+            'regex:/\Ahttps:\/\/meet\.google\.com\/[a-z]{3}-[a-z]{4}-[a-z]{3}\z/',
+            
+            'url', 'max:255'],
         ]);
 
         DB::transaction(function () {

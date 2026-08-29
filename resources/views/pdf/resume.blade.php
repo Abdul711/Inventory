@@ -216,7 +216,7 @@
                 @if (!empty($photo))
                     <td class="photo-cell">
 
-                        <img src="{{ public_path('storage/candidate/' . $photo) }}" class="photo" alt="Candidate Photo">
+                        <img src="{{ public_path('storage/applicant/' . $photo) }}" class="photo" alt="Candidate Photo">
 
                     </td>
                 @endif

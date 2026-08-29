@@ -97,7 +97,7 @@
 
 
 
-        <img class="photo" src="{{ public_path('storage/candidate/' . $applicannt_photo) }}">
+        <img class="photo" src="{{ public_path('storage/applicant/' . $applicannt_photo) }}">
 
         <div class="details">
 

@@ -129,7 +129,7 @@ new class extends Component {
                                 <div class="d-flex align-items-center gap-2">
 
                                     @if (!empty($interview['job_application']['applicant']['photo']))
-                                        <img src="{{ asset('storage/candidate/' . $interview['job_application']['applicant']['photo']) }}"
+                                        <img src="{{ asset('storage/applicant/' . $interview['job_application']['applicant']['photo']) }}"
                                             width="45" height="45" class="rounded-circle object-fit-cover"
                                             alt="">
                                     @endif
