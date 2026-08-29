@@ -21,7 +21,7 @@ return new class extends Migration
             $table->string('company');
             $table->date('start_date');
             $table->date('end_date');
-            $table->enum('experience_type', ['cooperate', 'freelance'])->default('cooperate');
+            $table->enum('experience_type', ['full-time', 'freelance','part-time','contract','internship'])->default('full-time');
             $table->text('responsibility')->nullable();
           $table->text('benefits')->nullable();
             $table->timestamps();

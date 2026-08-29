@@ -47,7 +47,11 @@ new class extends Component {
         'filterStatus' => ['except' => ''],
         'filterType' => ['except' => ''],
     ];
-
+    protected array $maritalStatuses = [
+        'single' => 'Single',
+        'married' => 'Married',
+        'divorced' => 'Divorced',
+    ];
     // Statistics
     public function getStatsProperty()
     {
@@ -83,10 +87,10 @@ new class extends Component {
             [
                 'id' => 1,
                 'job_title' => 'Senior Laravel Developer',
-                'company' => 'Tech Solutions Inc.',
+
                 'status' => 'interview',
                 'applied_date' => '2024-01-15',
-                'location' => 'Karachi',
+
                 'type' => 'Full Time',
                 'has_interview' => true,
                 'interview_date' => '2024-02-15',
@@ -95,10 +99,10 @@ new class extends Component {
             [
                 'id' => 2,
                 'job_title' => 'Frontend Developer',
-                'company' => 'Digital Innovations',
+
                 'status' => 'interview',
                 'applied_date' => '2024-01-12',
-                'location' => 'Lahore',
+
                 'type' => 'Full Time',
                 'has_interview' => true,
                 'interview_date' => '2024-02-16',
@@ -107,10 +111,10 @@ new class extends Component {
             [
                 'id' => 3,
                 'job_title' => 'UI/UX Designer',
-                'company' => 'Creative Agency',
+
                 'status' => 'offered',
                 'applied_date' => '2024-01-10',
-                'location' => 'Islamabad',
+
                 'type' => 'Contract',
                 'has_interview' => false,
             ],
@@ -120,7 +124,7 @@ new class extends Component {
                 'company' => 'Cloud Systems',
                 'status' => 'rejected',
                 'applied_date' => '2024-01-08',
-                'location' => 'Remote',
+
                 'type' => 'Full Time',
                 'has_interview' => false,
             ],
@@ -671,7 +675,7 @@ new class extends Component {
                             <thead class="bg-light">
                                 <tr>
                                     <th class="ps-3 ps-md-4">Job Title</th>
-                                    <th class="d-none d-md-table-cell">Company</th>
+
                                     <th>Date & Time</th>
                                     <th class="d-none d-lg-table-cell">Type</th>
                                     <th>Status</th>
@@ -682,7 +686,7 @@ new class extends Component {
                                 @forelse ($this->upcomingInterviews as $interview)
                                     <tr>
                                         <td class="ps-3 ps-md-4 fw-semibold small">{{ $interview['job_title'] }}</td>
-                                        <td class="d-none d-md-table-cell">{{ $interview['company'] }}</td>
+
                                         <td>
                                             <div class="small">
                                                 {{ \Carbon\Carbon::parse($interview['date'])->format('M d, Y') }}</div>
@@ -744,8 +748,8 @@ new class extends Component {
                             <thead class="bg-light">
                                 <tr>
                                     <th class="ps-3 ps-md-4">Job Title</th>
-                                    <th class="d-none d-sm-table-cell">Company</th>
-                                    <th class="d-none d-md-table-cell">Location</th>
+
+
                                     <th>Applied</th>
                                     <th>Status</th>
                                     <th class="pe-3 pe-md-4 text-end">Action</th>
@@ -756,8 +760,8 @@ new class extends Component {
                                     <tr>
                                         <td class="ps-3 ps-md-4 fw-semibold small">{{ $application['job_title'] }}
                                         </td>
-                                        <td class="d-none d-sm-table-cell">{{ $application['company'] }}</td>
-                                        <td class="d-none d-md-table-cell">{{ $application['location'] }}</td>
+
+
                                         <td class="small">
                                             {{ \Carbon\Carbon::parse($application['applied_date'])->diffForHumans() }}
                                         </td>
@@ -831,8 +835,7 @@ new class extends Component {
                             <thead class="bg-light">
                                 <tr>
                                     <th class="ps-3 ps-md-4">Job Title</th>
-                                    <th class="d-none d-sm-table-cell">Company</th>
-                                    <th class="d-none d-md-table-cell">Location</th>
+
                                     <th class="d-none d-lg-table-cell">Type</th>
                                     <th>Applied</th>
                                     <th>Status</th>
@@ -844,8 +847,7 @@ new class extends Component {
                                     <tr>
                                         <td class="ps-3 ps-md-4 fw-semibold small">{{ $application['job_title'] }}
                                         </td>
-                                        <td class="d-none d-sm-table-cell">{{ $application['company'] }}</td>
-                                        <td class="d-none d-md-table-cell">{{ $application['location'] }}</td>
+
                                         <td class="d-none d-lg-table-cell">
                                             <span class="badge bg-secondary small">{{ $application['type'] }}</span>
                                         </td>
@@ -943,7 +945,7 @@ new class extends Component {
                                     <thead class="bg-light">
                                         <tr>
                                             <th class="ps-3 ps-md-4">Job Title</th>
-                                            <th class="d-none d-md-table-cell">Company</th>
+
                                             <th class="d-none d-lg-table-cell">Interviewer</th>
                                             <th>Date & Time</th>
                                             <th class="d-none d-xl-table-cell">Mode</th>
@@ -956,7 +958,7 @@ new class extends Component {
                                             <tr>
                                                 <td class="ps-3 ps-md-4 fw-semibold small">
                                                     {{ $interview['job_title'] }}</td>
-                                                <td class="d-none d-md-table-cell">{{ $interview['company'] }}</td>
+
                                                 <td class="d-none d-lg-table-cell small">
                                                     {{ $interview['interviewer'] }}</td>
                                                 <td>
@@ -1072,9 +1074,7 @@ new class extends Component {
                                 <div class="d-flex justify-content-between align-items-start mb-3">
                                     <div>
                                         <h5 class="fw-bold mb-1 fs-6">{{ $job['title'] }}</h5>
-                                        <p class="text-muted mb-0 small">
-                                            <i class="bi bi-building me-1"></i>{{ $job['company'] }}
-                                        </p>
+
                                     </div>
                                     <button wire:click="removeSavedJob({{ $job['id'] }})"
                                         class="btn btn-sm btn-outline-danger rounded-pill px-2">
@@ -1142,7 +1142,9 @@ new class extends Component {
                             <p class="text-muted small">
                                 {{ auth('applicant')->user()->applicantworks->last()->designation }}</p>
                             <div class="d-flex justify-content-center gap-1 flex-wrap">
-                                <span class="badge bg-primary rounded-pill small">5+ Years</span>
+                                <span class="badge bg-primary rounded-pill small">
+                                    {{ round(auth('applicant')->user()->applicantworks->sum('month_of_experience') / 12) }}
+                                    Years</span>
                                 <span class="badge bg-success rounded-pill small">Available</span>
                             </div>
                             <hr>
@@ -1225,7 +1227,7 @@ new class extends Component {
 
                                             <div class="form-check form-check-inline">
                                                 <input class="form-check-input" type="radio" name="marital_status"
-                                                    id="married" value="Married">
+                                                    id="married" value="married">
 
                                                 <label class="form-check-label" for="married">
                                                     Married
@@ -1669,17 +1671,13 @@ new class extends Component {
                         <div class="modal-header border-0 p-4">
                             <div>
                                 <h5 class="fw-bold mb-1">{{ $app['job_title'] }}</h5>
-                                <p class="text-muted mb-0 small"><i
-                                        class="bi bi-building me-1"></i>{{ $app['company'] }}</p>
+
                             </div>
                             <button type="button" class="btn-close" wire:click="closeModal"></button>
                         </div>
                         <div class="modal-body p-4 pt-0">
                             <div class="row g-3">
-                                <div class="col-md-6">
-                                    <small class="text-muted d-block">Location</small>
-                                    <strong class="small">{{ $app['location'] }}</strong>
-                                </div>
+
                                 <div class="col-md-6">
                                     <small class="text-muted d-block">Type</small>
                                     <strong class="small">{{ $app['type'] }}</strong>
@@ -1737,8 +1735,7 @@ new class extends Component {
                         <div class="modal-header border-0 p-4">
                             <div>
                                 <h5 class="fw-bold mb-1">{{ $int['job_title'] }}</h5>
-                                <p class="text-muted mb-0 small"><i
-                                        class="bi bi-building me-1"></i>{{ $int['company'] }}</p>
+
                             </div>
                             <button type="button" class="btn-close" wire:click="closeModal"></button>
                         </div>
