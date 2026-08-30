@@ -24,7 +24,7 @@ return new class extends Migration
     $table->unsignedTinyInteger('probation_months')->default(3);
 
     $table->unsignedTinyInteger('notice_period_days')->default(30);
-
+  
     $table->enum('status',[
         'pending',
         'accepted',
