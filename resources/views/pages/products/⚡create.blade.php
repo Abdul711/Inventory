@@ -164,7 +164,7 @@ new class extends Component {
 
             $purchase = Purchase::create([
                 'supplier_id' => $this->supplier_id,
-                'purchase_date' => $this->purchase_date,
+
                 'purchase_no' => $this->purchase_no,
                 'total_amount' => $this->total_amount,
                 'paid_amount' => $this->total_amount,
@@ -191,17 +191,6 @@ new class extends Component {
                 'purchase_id' => $purchase->id,
                 'supplier_id' => $this->supplier_id,
                 'notes' => 'Item Purchased Quantity: ' . $this->quantity,
-            ]);
-            $category = ExpenseCategory::firstOrCreate([
-                'name' => 'purchase',
-            ]);
-
-            Expense::create([
-                'expense_category_id' => $category->id,
-                'payment_method' => 'card',
-                'amount' => $this->total_amount,
-                'expense_date' => $this->purchase_date,
-                'status' => 'completed',
             ]);
         });
         session()->flash('success', 'Product created successfully.');

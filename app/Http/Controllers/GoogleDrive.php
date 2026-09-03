@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\File;
 class GoogleDrive extends Controller
 {
     public function uploadImage (){
-       
+       set_time_limit(10000);
 $client = new Client();
 
 $client->setAuthConfig(

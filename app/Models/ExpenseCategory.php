@@ -21,4 +21,8 @@ class ExpenseCategory extends Model
     {
         return $this->hasMany(Expense::class);
     }
+    public function account()
+{
+    return $this->belongsTo(Account::class);
+}
 }

@@ -19,9 +19,9 @@ return new class extends Migration
             $table->string("emergency_contact_relationship")->after("emergency_contact_number")->nullable();
             $table->enum("employment_type",["internship","contract","part-time","permanent"])->after("emergency_contact_relationship")->after("emergency_contact_number")->default("permanent");
             $table->string("probation_period")->nullable()->after("employment_type");
-          
+          /*
             $table->enum("shift",["morning","evening","night"])->default("morning");
-
+*/
                
                  $table->time('reporting_time')->nullable(); 
 

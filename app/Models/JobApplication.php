@@ -35,7 +35,12 @@ public function interview()
 {
     return $this->hasOne(Interview::class);
 }
+public function screening(){
+    return $this->hasOne(Screening::class);
+}
+public function offer(){
 
-
+ return $this->hasOne(JobOffer::class);
+}
 
 }

@@ -57,12 +57,12 @@ new class extends Component {
             $this->recommended = $feedback->recommended === null ? null : (string) (int) $feedback->recommended;
         }
     }
-
     public function updated($property)
     {
-        if (str_contains($property, 'communication_score') && str_contains($property, 'attitude_score')) {
-            $avg = float(((int) $this->communication_score + (int) $this->attitude_score) / 2);
-            $this->overall_score = number_format($avg, 2);
+        if (str_contains($property, 'communication_score') || str_contains($property, 'attitude_score')) {
+            $avg = ((float) $this->communication_score + (float) $this->attitude_score) / 2;
+
+            $this->overall_score = round($avg, 2);
         }
     }
     public function updatedMode(string $value): void

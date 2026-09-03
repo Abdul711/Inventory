@@ -2,12 +2,17 @@
 
 use Livewire\Component;
 use App\Models\ExpenseCategory;
-
+use App\Models\Account;
 new class extends Component {
     public $name = '';
     public $description = '';
     public $status = 1;
-
+    public $account_id = '';
+    public array $expenseAccounts = [];
+    public function mount(): void
+    {
+        $this->expenseAccounts = Account::query()->where('type', 'expense')->where('is_group', false)->where('is_active', true)->orderBy('code')->get()->toArray();
+    }
     protected $rules = [
         'name' => 'required|min:2|max:255|unique:expense_categories,name',
         'description' => 'nullable|max:1000',
@@ -26,6 +31,7 @@ new class extends Component {
         ExpenseCategory::create([
             'name' => $this->name,
             'description' => $this->description,
+            'account_id' => $this->account_id,
             'status' => $this->status,
         ]);
 
@@ -78,6 +84,39 @@ new class extends Component {
                             <option value="1">Active</option>
                             <option value="0">Inactive</option>
                         </select>
+                    </div>
+
+
+                    <div class="mb-3">
+
+                        <label class="form-label">
+                            Accounting Account
+                        </label>
+
+                        <select wire:model="account_id" class="form-select">
+
+                            <option value="">
+                                Select Accounting Account
+                            </option>
+
+                            @foreach ($expenseAccounts as $account)
+                                <option value="{{ $account['id'] }}">
+
+                                    {{ $account['code'] }}
+                                    -
+                                    {{ $account['name'] }}
+
+                                </option>
+                            @endforeach
+
+                        </select>
+
+                        @error('account_id')
+                            <div class="text-danger small mt-1">
+                                {{ $message }}
+                            </div>
+                        @enderror
+
                     </div>
 
                     <div class="d-flex justify-content-end">

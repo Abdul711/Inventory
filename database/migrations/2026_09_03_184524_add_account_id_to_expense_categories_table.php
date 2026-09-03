@@ -11,8 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('table', function (Blueprint $table) {
+        Schema::table('expense_categories', function (Blueprint $table) {
             //
+             $table->foreignId('account_id')
+                ->nullable()
+                ->after('id')
+                ->constrained('accounts')
+                ->restrictOnDelete();
         });
     }
 
@@ -21,7 +26,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('table', function (Blueprint $table) {
+        Schema::table('expense_categories', function (Blueprint $table) {
             //
         });
     }

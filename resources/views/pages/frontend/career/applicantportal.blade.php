@@ -348,6 +348,7 @@ new class extends Component {
 
     public function emit()
     {
+        auth('applicant')->logout();
         return redirect()->route('applicantauth');
     }
 
@@ -1273,10 +1274,10 @@ new class extends Component {
                             </div>
                             <h5 class="fw-bold fs-6">{{ auth('applicant')->user()->full_name }}</h5>
                             <p class="text-muted small">
-                                {{ auth('applicant')->user()->applicantworks->last()->designation ?? 'N/A' }}</p>
+                                {{ auth('applicant')->user()->works?->last()?->designation ?? 'N/A' }}</p>
                             <div class="d-flex justify-content-center gap-1 flex-wrap">
                                 <span
-                                    class="badge bg-primary rounded-pill small">{{ round(auth('applicant')->user()->applicantworks->sum('month_of_experience') / 12) }}
+                                    class="badge bg-primary rounded-pill small">{{ round(auth('applicant')->user()->works->sum('month_of_experience') / 12) }}
                                     Years</span>
                                 <span class="badge bg-success rounded-pill small">Available</span>
                             </div>
@@ -1487,7 +1488,8 @@ new class extends Component {
                                                     <p class="mb-1 small"><i
                                                             class="bi bi-building me-1"></i>{{ $experience['company'] }}
                                                         <span class="text-muted">·
-                                                            {{ $experience['location'] }}</span></p>
+                                                            {{ $experience['location'] }}</span>
+                                                    </p>
                                                     <div class="d-flex flex-wrap gap-2 mb-1"><small
                                                             class="text-muted"><i
                                                                 class="bi bi-calendar me-1"></i>{{ \Carbon\Carbon::parse($experience['start_date'])->format('M Y') }}

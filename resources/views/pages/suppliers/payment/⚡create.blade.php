@@ -213,24 +213,6 @@ new class extends Component {
             | Expense Entry
             |--------------------------------------------------------------------------
             */
-            $category = ExpenseCategory::firstOrCreate([
-                'name' => 'supplier_payment',
-            ]);
-            Expense::create([
-                'supplier_id' => $purchase->supplier_id,
-
-                'purchase_id' => $purchase->id,
-
-                'amount' => $this->amount,
-
-                'expense_category_id' => $category->id,
-
-                'payment_method' => $this->payment_method,
-                'status' => 'completed',
-                'expense_date' => $this->payment_date,
-
-                'description' => $this->notes,
-            ]);
         });
 
         /*

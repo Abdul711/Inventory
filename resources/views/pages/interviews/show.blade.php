@@ -9,18 +9,24 @@ new class extends Component {
     public array $interview = [];
     public array $applicant = [];
     public array $job = [];
-
+    public $hasFeedback = false;
+    public $feedback;
     public function mount($id): void
     {
         $this->id = (int) $id;
 
-        $interviewData = Interview::with(['interviewer', 'jobApplication.applicant', 'jobApplication.jobPosting.department'])->findOrFail($this->id);
+        $interviewData = Interview::with(['interviewer', 'feedback', 'jobApplication.applicant', 'jobApplication.jobPosting.department'])->findOrFail($this->id);
 
         /*
         |--------------------------------------------------------------------------
         | Interview Information
         |--------------------------------------------------------------------------
         */
+        $isOverallScoreNull = $interviewData->feedback === null;
+        if (!$isOverallScoreNull) {
+            $this->hasFeedback = true;
+            $this->feedback = $interviewData->feedback;
+        }
 
         $this->interview = [
             'id' => $interviewData->id,
@@ -516,6 +522,7 @@ new class extends Component {
 
 
     {{-- Interview Information --}}
+
     <div class="card border-0 shadow mb-4">
 
         <div class="card-header bg-light">
@@ -660,5 +667,127 @@ new class extends Component {
         </div>
 
     </div>
+    @if ($this->hasFeedback)
+        @php
+            $recommended = $feedback->recommended == 1 ? 'Yes' : 'No';
+            $typeFeedBackClass = match ($recommended ?? '') {
+                'online' => 'bg-info',
+                'Yes' => 'bg-success',
+                'No' => 'bg-danger',
+                default => 'bg-dark',
+            };
+        @endphp
+        <div class="card border-0 shadow mb-4">
+
+            <div class="card-header bg-light">
+
+                <h5 class="mb-0">
+
+                    <i class="bi bi-calendar-event me-2"></i>
+
+                    Interview Feedback
+
+                </h5>
+
+            </div>
+
+
+            <div class="card-body">
+
+                <div class="row g-4">
+
+                    {{-- Interviewer --}}
+                    <div class="col-md-6">
+
+                        <strong>
+                            Communication Score
+                        </strong>
+
+                        <p class="text-muted mb-0">
+                            {{ $feedback->communication_score }}
+
+                        </p>
+
+                    </div>
+
+
+                    {{-- Email --}}
+                    <div class="col-md-6">
+
+                        <strong>
+                            Attitude Score
+                        </strong>
+
+                        <p class="text-muted mb-0">
+
+                            {{ $feedback->attitude_score }}
+
+                        </p>
+
+                    </div>
+
+
+                    {{-- Scheduled --}}
+                    <div class="col-md-6">
+
+                        <strong>
+                            Overall Score
+                        </strong>
+
+                        <p class="text-muted mb-0">
+
+                            {{ $feedback->overall_score }}
+
+                        </p>
+
+                    </div>
+
+
+                    {{-- Type --}}
+                    <div class="col-md-6">
+
+                        <strong>
+                            Recommended
+                        </strong>
+
+                        <p class="mt-1 mb-0">
+
+                            <span class="badge {{ $typeFeedBackClass }}">
+                                {{ $feedback->recommended == 1 ? 'Yes' : 'No' }}
+
+                            </span>
+
+                        </p>
+
+                    </div>
+
+
+                    {{-- Meeting Link --}}
+
+                    <div class="col-md-6">
+
+                        <strong>
+                            Comments
+                        </strong>
+
+                        <p class="mt-1 mb-0">
+                            {{ $feedback->comments }}
+
+
+                        </p>
+
+                    </div>
+
+
+
+                    {{-- Status --}}
+
+
+                </div>
+
+            </div>
+
+        </div>
+    @endif
 
 </div>

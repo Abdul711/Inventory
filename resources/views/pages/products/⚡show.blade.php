@@ -111,7 +111,7 @@ new class extends Component {
             </p>
         </div>
 
-        <a href="{{ route('products.index') }}" class="btn btn-secondary rounded-pill">
+        <a href="{{ route('products.all') }}" class="btn btn-secondary rounded-pill">
             Back
         </a>
 

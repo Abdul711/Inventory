@@ -2,7 +2,8 @@
 
 use Livewire\Component;
 use App\Models\JobApplication;
-
+use Barryvdh\DomPDF\Facade\Pdf;
+use SimpleSoftwareIO\QrCode\Facades\QrCode;
 new class extends Component {
     public int $id;
 
@@ -11,11 +12,24 @@ new class extends Component {
     public array $workExperiences = [];
     public array $documents = [];
     public array $interview = [];
+    public $has_interview = false;
+    public $has_feedback = false;
+    public $feedback;
     public function mount($id): void
     {
         $this->id = (int) $id;
 
         $applicationData = JobApplication::with(['jobPosting.department', 'interview'])->findOrFail($this->id);
+
+        if ($applicationData?->interview) {
+            $this->has_interview = true;
+            if ($applicationData?->interview?->feedback) {
+                $this->has_feedback = true;
+                $this->feedback = $applicationData?->interview?->feedback;
+            }
+        }
+
+        //  dd($this->has_interview, $this->has_feedback);
 
         $this->application = [
             'id' => $applicationData->id,
@@ -113,6 +127,66 @@ new class extends Component {
             ->values()
             ->toArray();
     }
+    public function downloadApplication($id)
+    {
+        $application = JobApplication::findOrFail($id);
+
+        $verificationUrl = url('job-application-verify');
+
+        $svg = QrCode::format('svg')
+            ->size(180)
+            ->margin(1)
+            ->generate('Application ID: ' . $application->id);
+
+        $qrCode = 'data:image/svg+xml;base64,' . base64_encode($svg);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Generate PDF
+        |--------------------------------------------------------------------------
+        */
+
+        $photo = null;
+
+        if (!empty($application->applicant->photo)) {
+            $photoPath = public_path('storage/applicant/' . ltrim($application->applicant->photo, '/'));
+
+            if (file_exists($photoPath)) {
+                $extension = strtolower(pathinfo($photoPath, PATHINFO_EXTENSION));
+
+                $mime = match ($extension) {
+                    'jpg', 'jpeg' => 'image/jpeg',
+                    'png' => 'image/png',
+                    'webp' => 'image/webp',
+                    default => null,
+                };
+
+                if ($mime) {
+                    $photo = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($photoPath));
+                }
+            }
+        }
+
+        $pdf = Pdf::loadView('pdf.application', [
+            'application' => $application,
+            'qrCode' => $qrCode,
+            'photo' => $photo,
+        ]);
+
+        $pdf->setPaper('a4');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Download PDF from Livewire
+        |--------------------------------------------------------------------------
+        */
+
+        return response()->streamDownload(function () use ($pdf) {
+            echo $pdf->output();
+        }, 'job-application-' . $application->id . '.pdf');
+
+        dd($application);
+    }
 };
 ?>
 
@@ -135,6 +209,10 @@ new class extends Component {
 
             <a href="{{ route('jobs.applications.index') }}" class="btn btn-secondary rounded-pill">
                 Back
+            </a>
+            <a href="#" class="btn btn-secondary rounded-pill"
+                wire:click.prevent="downloadApplication({{ $application['id'] }})">
+                Download Application
             </a>
 
         </div>
@@ -764,9 +842,9 @@ new class extends Component {
         </div>
     </div>
 
-    @if ($application['status'] === 'interview')
+    @if ($has_interview)
 
-        <div class="card border-0 shadow mb-4">
+        <div class="card border-0 shadow mt-4 mb-4">
 
             <div class="card-header bg-light">
 
@@ -958,7 +1036,208 @@ new class extends Component {
 
         </div>
 
+
+
+
+
+
     @endif
+    @if ($has_feedback)
+        <div class="card border-0 shadow mt-4 mb-4">
+
+            <div class="card-header bg-light">
+
+                <div class="d-flex justify-content-between align-items-center">
+
+                    <h5 class="mb-0">
+                        <i class="bi bi-calendar-event me-2"></i>
+                        Interview Feedback
+                    </h5>
+
+                    @php
+                        $interviewStatusClass = 'bg-primary';
+
+                        if (($interview['status'] ?? '') === 'completed') {
+                            $interviewStatusClass = 'bg-success';
+                        } elseif (($interview['status'] ?? '') === 'cancelled') {
+                            $interviewStatusClass = 'bg-danger';
+                        } elseif (($interview['status'] ?? '') === 'rescheduled') {
+                            $interviewStatusClass = 'bg-warning text-dark';
+                        }
+                    @endphp
+
+                    <span class="badge {{ $interviewStatusClass }}">
+                        {{ ucfirst($interview['status']) }}
+                    </span>
+
+                </div>
+
+            </div>
+
+
+            <div class="card-body">
+
+                <div class="row g-4">
+
+                    {{-- Interviewer --}}
+                    <div class="col-md-6">
+
+                        <strong>
+                            Communication Score
+                        </strong>
+
+                        <p class="text-muted mb-0">
+                            {{ $feedback->communication_score }}
+                        </p>
+
+                    </div>
+
+
+                    {{-- Interviewer Email --}}
+                    <div class="col-md-6">
+
+                        <strong>
+                            Attitude Score
+                        </strong>
+
+                        <p class="text-muted mb-0">
+                            {{ $feedback->attitude_score }}
+                        </p>
+
+                    </div>
+
+
+                    {{-- Scheduled Date --}}
+                    <div class="col-md-6">
+
+                        <strong>
+                            Overall Score
+                        </strong>
+
+                        <p class="text-muted mb-0">
+
+
+
+                            {{ $feedback->overall_score }}
+
+                        </p>
+
+                    </div>
+
+
+                    {{-- Interview Type --}}
+                    <div class="col-md-6">
+
+                        <strong>
+                            Recommended
+                        </strong>
+
+                        <p class="mt-1 mb-0">
+
+                            @php
+                                $recommended = $feedback->recommended == 1 ? 'Yes' : 'No';
+                                $typeClass = match ($recommended) {
+                                    'No' => 'bg-danger',
+                                    'Yes' => 'bg-success',
+                                    'phone' => 'bg-secondary',
+                                    default => 'bg-dark',
+                                };
+                            @endphp
+
+                            <span class="badge {{ $typeClass }}">
+                                {{ ucfirst($recommended) }}
+                            </span>
+
+                        </p>
+
+                    </div>
+
+
+                    {{-- Meeting Link --}}
+                    @if ($interview['type'] === 'online' && !empty($interview['meeting_link']))
+                        <div class="col-md-6">
+
+                            <strong>
+                                Meeting Link
+                            </strong>
+
+                            <p class="mb-0 mt-1">
+
+                                <a href="{{ $interview['meeting_link'] }}" target="_blank"
+                                    class="btn btn-sm btn-primary rounded-pill">
+                                    <i class="bi bi-camera-video me-1"></i>
+                                    Join Interview
+                                </a>
+
+                            </p>
+
+                        </div>
+                    @endif
+
+
+                    {{-- Interview Status --}}
+                    <div class="col-md-6">
+
+                        <strong>
+                            Interview Status
+                        </strong>
+
+                        <p class="mt-1 mb-0">
+
+                            <span class="badge {{ $interviewStatusClass }}">
+                                {{ ucfirst($interview['status']) }}
+                            </span>
+
+                        </p>
+
+                    </div>
+
+
+                    {{-- Rating --}}
+                    @if (!empty($interview['rating']))
+                        <div class="col-md-6">
+
+                            <strong>
+                                Rating
+                            </strong>
+
+                            <p class="text-muted mb-0">
+
+                                {{ $interview['rating'] }} / 5
+
+                                <i class="bi bi-star-fill text-warning"></i>
+
+                            </p>
+
+                        </div>
+                    @endif
+
+
+                    {{-- Feedback --}}
+                    @if (!empty($interview['feedback']))
+                        <div class="col-12">
+
+                            <strong>
+                                Interview Feedback
+                            </strong>
+
+                            <div class="bg-light rounded p-3 mt-2">
+
+                                {{ $interview['feedback'] }}
+
+                            </div>
+
+                        </div>
+                    @endif
+
+                </div>
+
+            </div>
+
+        </div>
+    @endif
+
+
 
 
 </div>

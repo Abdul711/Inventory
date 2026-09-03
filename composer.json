@@ -17,7 +17,7 @@
         "laravel/ui": "^4.6",
         "livewire/livewire": "^4.3",
         "maatwebsite/excel": "^3.1",
-        "simplesoftwareio/simple-qrcode": "*",
+        "simplesoftwareio/simple-qrcode": "^4.2",
         "spatie/browsershot": "^5.4"
     },
     "require-dev": {

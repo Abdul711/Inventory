@@ -37,6 +37,7 @@ Route::get("uploadImage",[GoogleDrive::class,"uploadImage"]);
 Route::middleware('auth')->group(function () {
    Route::livewire("dashboard", "pages::dashboard")->name('dashboard');
 require __DIR__.'/finance.php';
+require __DIR__.'/account.php';
 require __DIR__.'/hr.php';
 require __DIR__.'/inventory.php';
 require __DIR__.'/logistics.php';

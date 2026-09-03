@@ -22,37 +22,24 @@ class Applicant extends Authenticatable
 public function educations()
 {
     return $this->hasMany(
-        CandidateEducation::class,
-        'job_application_id'
+        ApplicantEducation::class,
+        'applicant_id'
     );
 }
 
 public function works()
 {
         return $this->hasMany(
-        CandidateWork::class,
-        'job_application_id'
+        ApplicantWork::class,
+        'applicant_id'
     );
 }
-public function applicantworks(){
 
-   return $this->hasMany(
-        ApplicantWorK::class,
-        'applicant_id'
-    )->orderBy('created_at');
-}
-public function applicanteducations()
-{
-    return $this->hasMany(
-        ApplicantEducation::class,
-        'applicant_id'
-    );
-}
 public function documents()
 {
     return $this->hasMany(
-        CandidateDocument::class,
-        'job_application_id'
+        ApplicantDocument::class,
+        'applicant_id'
     );
 }
 

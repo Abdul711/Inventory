@@ -43,7 +43,7 @@ return new class extends Migration
         ->nullOnDelete()->after('approved_at');
            $table->decimal('candidate_expected_salary', 12, 2)
         ->nullable()
-        ->after('salary');
+        ->after('job_application_id');
 
     $table->text('candidate_negotiation_note')
         ->nullable()
@@ -57,7 +57,7 @@ return new class extends Migration
     $table->timestamp('withdrawn_at')->nullable()->after('approved_at');
   $table->decimal('approved_salary', 12, 2)
         ->nullable()
-        ->after('salary');
+        ->after('job_application_id');
             $table->json('terms_conditions')->nullable()->after('candidate_negotiation_note');
     $table->text('withdrawal_reason')->nullable()->after("withdrawn_at");  
        $table->date('contract_start_date')->nullable()->after("withdrawal_reason");  

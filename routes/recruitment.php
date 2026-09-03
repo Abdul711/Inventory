@@ -25,5 +25,10 @@ use Illuminate\Support\Facades\Route;
         Route::livewire('/{id}/edit', 'pages::job_postings.edit')->name('edit');
         Route::livewire('/{id}', 'pages::job_postings.show')->name('show');
      });
+     Route::prefix("job-offers")->group(function(){
+           Route::livewire('/', 'pages::job_offer.all')->name('offers.index');
+           Route::livewire('/{id}/edit','pages::job_offer.edit')->name("offers.edit");
+           Route::livewire('/{id}','pages::job_offer.show')->name("offers.show");
+     });
 
 });

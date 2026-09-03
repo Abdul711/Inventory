@@ -841,14 +841,14 @@
 
                         <i class="bi bi-briefcase-fill"></i>
 
-                        Job Postings
+                        Postings
                     </a>
                     <a href="{{ adminRoute('jobs.interviews.index') }}"
                         class="nav-link {{ activeRoute('jobs.interviews.index') }}">
 
                         <i class="bi bi-person-workspace"></i>
 
-                        Interview
+                        Interviews
                     </a>
 
                     <a href="{{ adminRoute('jobs.applicants.index') }}"
@@ -856,9 +856,15 @@
 
                         <i class="bi bi-person-vcard-fill"></i>
 
-                        Applicant
+                        Applicants
                     </a>
+                    <a href="{{ adminRoute('jobs.offers.index') }}"
+                        class="nav-link {{ activeRoute('jobs.offers.index') }}">
 
+                        <i class="bi bi-file-earmark-check-fill"></i>
+
+                        Offers
+                    </a>
                 </div>
             </li>
 

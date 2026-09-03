@@ -8,4 +8,27 @@ class JobOfferNegotiation extends Model
 {
     //
       protected $guarded=[];
+          public function jobOffer()
+    {
+        return $this->belongsTo(
+            JobOffer::class,
+            'job_offer_id'
+        );
+    }
+
+    public function applicant()
+    {
+        return $this->belongsTo(
+            Applicant::class,
+            'applicant_id'
+        );
+    }
+
+    public function proposedBy()
+    {
+        return $this->belongsTo(
+            User::class,
+            'proposed_by'
+        );
+    }
 }

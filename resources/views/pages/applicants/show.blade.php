@@ -16,30 +16,17 @@ new class extends Component {
     {
         $this->id = (int) $id;
 
-        $applicantData = Applicant::with(['jobApplications.jobPosting.department', 'jobApplications.interview.interviewer', 'jobApplications.educations', 'jobApplications.works', 'jobApplications.documents'])->findOrFail($this->id);
+        $applicantData = Applicant::with(['jobApplications.jobPosting.department', 'jobApplications.interview.interviewer', 'educations', 'works', 'documents'])->findOrFail($this->id);
+        $this->workExperiences = $applicantData->works->toArray();
+        $this->educations = $applicantData->educations->toArray();
+        $this->documents = $applicantData->documents->toArray();
+
         /*
         |--------------------------------------------------------------------------
         | Applicant Information
         |--------------------------------------------------------------------------
         */
-        $this->educations = $applicantData->jobApplications
-            ->flatMap(function ($application) {
-                return $application->educations;
-            })
-            ->map(function ($education) {
-                return [
-                    'id' => $education->id,
-                    'degree_name' => $education->degree_name,
-                    'institute' => $education->institute,
-                    'institute_type' => $education->institute_type,
-                    'graduate_start_year' => $education->graduate_start_year,
-                    'graduate_end_year' => $education->graduate_end_year,
-                    'grade' => $education->grade,
-                    'certificate_path' => $education->certificate_path,
-                ];
-            })
-            ->values()
-            ->toArray();
+
         $this->applications = $applicantData->jobApplications
             ->map(function ($application) {
                 return [
@@ -62,43 +49,7 @@ new class extends Component {
             })
             ->values()
             ->toArray();
-        $this->workExperiences = $applicantData->jobApplications
-            ->flatMap(function ($application) {
-                return $application->works;
-            })
-            ->map(function ($experience) {
-                return [
-                    'id' => $experience->id,
-                    'company' => $experience->company,
-                    'designation' => $experience->designation,
-                    'experience_type' => $experience->experience_type,
-                    'start_date' => $experience->start_date,
-                    'end_date' => $experience->end_date,
-                    'month_of_experience' => $experience->month_of_experience,
-                    'responsibility' => $experience->responsibility,
-                    'benefits' => $experience->benefits,
-                ];
-            })
-            ->values()
-            ->toArray();
 
-        $this->documents = $applicantData->jobApplications
-            ->flatMap(function ($application) {
-                return $application->documents;
-            })
-            ->map(function ($document) {
-                return [
-                    'id' => $document->id,
-                    'document_type' => $document->document_type,
-                    'file_name' => $document->file_name,
-                    'file_path' => $document->file_path,
-                    'mime_type' => $document->mime_type,
-                    'file_size' => $document->file_size,
-                    'remarks' => $document->remarks,
-                ];
-            })
-            ->values()
-            ->toArray();
         $this->applicant = [
             'id' => $applicantData->id,
             'full_name' => $applicantData->full_name,
@@ -109,7 +60,6 @@ new class extends Component {
             'gender' => $applicantData->gender,
             'address' => $applicantData->address,
             'photo' => $applicantData->photo,
-
             'created_at' => $applicantData->created_at?->format('d M Y h:i A'),
         ];
     }
@@ -800,6 +750,10 @@ new class extends Component {
                                     class="btn btn-sm
                                     btn-primary rounded-pill">
                                     View
+                                </a>
+                                <a href="{{ asset($document['file_path']) }}" download
+                                    class="btn btn-sm btn-success rounded-pill">
+                                    Download
                                 </a>
 
                             </td>

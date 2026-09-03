@@ -2,7 +2,8 @@
 
 use Livewire\Component;
 use App\Models\JobApplication;
-
+use Barryvdh\DomPDF\Facade\Pdf;
+use SimpleSoftwareIO\QrCode\Facades\QrCode;
 new class extends Component {
     public string $search = '';
 
@@ -37,6 +38,66 @@ new class extends Component {
             ->latest()
             ->get()
             ->toArray();
+    }
+    public function downloadApplication($id)
+    {
+        $application = JobApplication::findOrFail($id);
+
+        $verificationUrl = url('job-application-verify');
+
+        $svg = QrCode::format('svg')
+            ->size(180)
+            ->margin(1)
+            ->generate('Application ID: ' . $application->id);
+
+        $qrCode = 'data:image/svg+xml;base64,' . base64_encode($svg);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Generate PDF
+        |--------------------------------------------------------------------------
+        */
+
+        $photo = null;
+
+        if (!empty($application->applicant->photo)) {
+            $photoPath = public_path('storage/applicant/' . ltrim($application->applicant->photo, '/'));
+
+            if (file_exists($photoPath)) {
+                $extension = strtolower(pathinfo($photoPath, PATHINFO_EXTENSION));
+
+                $mime = match ($extension) {
+                    'jpg', 'jpeg' => 'image/jpeg',
+                    'png' => 'image/png',
+                    'webp' => 'image/webp',
+                    default => null,
+                };
+
+                if ($mime) {
+                    $photo = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($photoPath));
+                }
+            }
+        }
+
+        $pdf = Pdf::loadView('pdf.application', [
+            'application' => $application,
+            'qrCode' => $qrCode,
+            'photo' => $photo,
+        ]);
+
+        $pdf->setPaper('a4');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Download PDF from Livewire
+        |--------------------------------------------------------------------------
+        */
+
+        return response()->streamDownload(function () use ($pdf) {
+            echo $pdf->output();
+        }, 'job-application-' . $application->id . '.pdf');
+
+        dd($application);
     }
 };
 ?>
@@ -150,6 +211,10 @@ new class extends Component {
                                     <a href="{{ route('jobs.applications.show', $application['id']) }}"
                                         class="btn btn-sm btn-primary rounded-pill">
                                         View
+                                    </a>
+                                    <a href="#" class="btn btn-secondary rounded-pill"
+                                        wire:click.prevent="downloadApplication({{ $application['id'] }})">
+                                        Download Application
                                     </a>
 
                                     <button type="button" class="btn btn-sm btn-danger rounded-pill">

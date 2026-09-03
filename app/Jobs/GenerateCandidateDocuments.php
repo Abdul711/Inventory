@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\File;
 use Spatie\Browsershot\Browsershot;
 use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
+use App\Models\ApplicantDocument;
 class GenerateCandidateDocuments implements ShouldQueue
 {
     use Queueable;
@@ -96,7 +97,7 @@ class GenerateCandidateDocuments implements ShouldQueue
     public function handle(): void
     {
         $startTime = microtime(true);
-
+        $applicantDocuments=[];
         /*
         |--------------------------------------------------------------------------
         | Create / Update Job Log
@@ -125,20 +126,23 @@ class GenerateCandidateDocuments implements ShouldQueue
                     ]);
 
                     $fileName = 'education-' . str()->slug($application->applicant->full_name) . $degree .time(). '.pdf';
-
                     $path = 'documents/' . str()->slug($application->applicant->full_name) .'/' ."applicationno".$application->id .'/' . $fileName;
-
                     Storage::disk('public')->put($path, $pdf->output());
-
                     $fullPath = Storage::disk('public')->path($path);
-
                     $size = filesize($fullPath);
-
                     $mimeType = mime_content_type($fullPath);
                     $this->documents[] = [
                         'job_application_id' => $application->id,
                         'document_type' => 'degree',
-                        'file_name' => $degree . ' Certificate',
+                        'file_name' => $degree . 'Certificate',
+                        'file_size' => $size,
+                        'file_path' => 'storage/' . $path,
+                        'mime_type' => $mimeType,
+                    ];
+                      $applicantDocuments[] = [
+                        'applicant_id' => $application->applicant->id,
+                        'document_type' => 'degree',
+                        'file_name' => $degree . 'Certificate',
                         'file_size' => $size,
                         'file_path' => 'storage/' . $path,
                         'mime_type' => $mimeType,
@@ -179,7 +183,22 @@ class GenerateCandidateDocuments implements ShouldQueue
                         'file_size' => $size,
                         'file_path' => 'storage/' . $pathexperience,
                         'mime_type' => $mimeType,
-                    ];
+     
+     
+                        ];
+                             $applicantDocuments[] = [
+                        'applicant_id' => $application->applicant->id,
+                        'document_type' => 'experience_letter',
+                        'file_name' => 'Experience Letter',
+                        'file_size' => $size,
+                        'file_path' => 'storage/' . $pathexperience,
+                        'mime_type' => $mimeType,
+     
+     
+                        ];
+
+
+
                           }
 
 
@@ -216,6 +235,15 @@ class GenerateCandidateDocuments implements ShouldQueue
                     'file_path' => 'storage/' . $relativePath,
                     'mime_type' => $mimeType,
                 ];
+                      $applicantDocuments[] = [
+                    'applicant_id' => $application->applicant->id,
+                    'document_type' => 'national_id',
+                    'file_name' => 'CNIC',
+                    'file_size' => $size,
+                    'file_path' => 'storage/' . $relativePath,
+                    'mime_type' => $mimeType,
+                ];
+                          
                                
 
                       $data = [
@@ -253,6 +281,14 @@ class GenerateCandidateDocuments implements ShouldQueue
                     'file_path' => 'storage/' . $path,
                     'mime_type' => $mimeType,
                 ];
+                      $applicantDocuments[] = [
+                    'applicant_id' => $application->applicant->id,
+                    'document_type' => 'resume',
+                    'file_name' => 'Resume',
+                    'file_size' => $size,
+                    'file_path' => 'storage/' . $path,
+                    'mime_type' => $mimeType,
+                ];
 
 
              foreach ($this->documents as $document) {
@@ -264,8 +300,26 @@ class GenerateCandidateDocuments implements ShouldQueue
                     'file_path' => $document['file_path'],
                     'mime_type' => $document['mime_type'],
                 ]);
+              
             }
+           foreach($applicantDocuments as $applicantDocument){
+              
+    ApplicantDocument::updateOrCreate(
+        [
+            'applicant_id'  => $applicantDocument['applicant_id'],
+            'document_type' => $applicantDocument['document_type'],
+          
+        ],
+        [
+            'file_name'     => $applicantDocument['file_name'],
+            'file_size' => $applicantDocument['file_size'],
+            'file_path' => $applicantDocument['file_path'],
+            'mime_type' => $applicantDocument['mime_type'],
+        ]
+    );
 
+
+           }
                 
         $jobLog = JobLog::updateOrCreate(
             [

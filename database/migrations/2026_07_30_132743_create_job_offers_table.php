@@ -17,9 +17,8 @@ return new class extends Migration
         ->constrained()
         ->cascadeOnDelete();
 
-    $table->decimal('salary',10,2);
+    $table->decimal('salary_proposed',10,2);
 
-    $table->date('joining_date');
 
     $table->unsignedTinyInteger('probation_months')->default(3);
 
