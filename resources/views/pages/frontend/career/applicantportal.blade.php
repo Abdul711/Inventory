@@ -108,6 +108,7 @@ new class extends Component {
     // Recent Applications
     public function getRecentApplicationsProperty()
     {
+        return auth('applicant')->user()->jobApplications;
         return [
             [
                 'id' => 1,
@@ -881,15 +882,16 @@ new class extends Component {
                             <tbody>
                                 @forelse ($this->recentApplications as $application)
                                     <tr>
-                                        <td class="ps-3 ps-md-4 fw-semibold small">{{ $application['job_title'] }}
+                                        <td class="ps-3 ps-md-4 fw-semibold small">
+                                            {{ $application['jobPosting']['designation']['name'] }}
                                         </td>
                                         <td class="small">
-                                            {{ \Carbon\Carbon::parse($application['applied_date'])->diffForHumans() }}
+                                            {{ \Carbon\Carbon::parse($application['created_at'])->diffForHumans() }}
                                         </td>
                                         <td>
                                             @php $statusColors = ['pending'=>'warning','interview'=>'info','offered'=>'success','rejected'=>'danger']; @endphp
                                             <span
-                                                class="badge bg-{{ $statusColors[$application['status']] ?? 'secondary' }} rounded-pill small">{{ ucfirst($application['status']) }}</span>
+                                                class="badge bg-{{ $statusColors[$application['status']] ?? 'secondary' }} rounded-pill small">{{ str()->headline($application['status']) }}</span>
                                         </td>
                                         <td class="pe-3 pe-md-4 text-end">
                                             <button wire:click="showApplication({{ $application['id'] }})"
@@ -951,16 +953,17 @@ new class extends Component {
                             <tbody>
                                 @forelse ($this->recentApplications as $application)
                                     <tr>
-                                        <td class="ps-3 ps-md-4 fw-semibold small">{{ $application['job_title'] }}
+                                        <td class="ps-3 ps-md-4 fw-semibold small">
+                                            {{ $application['jobPosting']['designation']['name'] }}
                                         </td>
                                         <td class="d-none d-lg-table-cell"><span
-                                                class="badge bg-secondary small">{{ $application['type'] }}</span>
+                                                class="badge bg-secondary small">{{ str()->headline($application['jobPosting']['employment_type']) }}</span>
                                         </td>
-                                        <td class="small">{{ $application['applied_date'] }}</td>
+                                        <td class="small">{{ $application['created_at']->format('d M Y') }}</td>
                                         <td>
                                             @php $statusColors = ['pending'=>'warning','interview'=>'info','offered'=>'success','rejected'=>'danger']; @endphp
                                             <span
-                                                class="badge bg-{{ $statusColors[$application['status']] ?? 'secondary' }} rounded-pill small">{{ ucfirst($application['status']) }}</span>
+                                                class="badge bg-{{ $statusColors[$application['status']] ?? 'secondary' }} rounded-pill small">{{ str()->headline($application['status']) }}</span>
                                         </td>
                                         <td class="pe-3 pe-md-4 text-end">
                                             <button wire:click="showApplication({{ $application['id'] }})"
@@ -1418,7 +1421,7 @@ new class extends Component {
                                                     class="form-label fw-semibold small">Employment Type
                                                     *</label><select wire:model="experienceEmploymentType"
                                                     class="form-select form-select-sm @error('experienceEmploymentType') is-invalid @enderror">
-                                                    <option value="full_time">Full Time</option>
+                                                    <option value="permenant">Full Time</option>
                                                     <option value="part_time">Part Time</option>
                                                     <option value="contract">Contract</option>
                                                     <option value="freelance">Freelance</option>
@@ -1696,29 +1699,62 @@ new class extends Component {
                     <div class="modal-content shadow rounded-4 border-0">
                         <div class="modal-header border-0 p-4">
                             <div>
-                                <h5 class="fw-bold mb-1">{{ $app['job_title'] }}</h5>
+                                <h5 class="fw-bold mb-1">{{ $app['jobPosting']['designation']['name'] }}</h5>
                             </div>
                             <button type="button" class="btn-close" wire:click="closeModal"></button>
                         </div>
                         <div class="modal-body p-4 pt-0">
                             <div class="row g-3">
                                 <div class="col-md-6"><small class="text-muted d-block">Type</small><strong
-                                        class="small">{{ $app['type'] }}</strong></div>
+                                        class="small">{{ str()->headline($app['jobPosting']['employment_type']) }}</strong>
+                                </div>
                                 <div class="col-md-6"><small class="text-muted d-block">Applied Date</small><strong
-                                        class="small">{{ $app['applied_date'] }}</strong></div>
+                                        class="small">{{ \Carbon\Carbon::parse($app->created_at)->format('d F, Y') }}</strong>
+                                </div>
                                 <div class="col-md-6">
                                     <small class="text-muted d-block">Status</small>
                                     @php $statusColors = ['pending'=>'warning','interview'=>'info','offered'=>'success','rejected'=>'danger']; @endphp
                                     <span
-                                        class="badge bg-{{ $statusColors[$app['status']] ?? 'secondary' }} rounded-pill small">{{ ucfirst($app['status']) }}</span>
+                                        class="badge bg-{{ $statusColors[$app['status']] ?? 'secondary' }} rounded-pill small">{{ ucfirst(str()->headline($app['status'])) }}</span>
                                 </div>
-                                @if ($app['has_interview'] ?? false)
-                                    <div class="col-12 mt-3 pt-3 border-top">
-                                        <h6 class="fw-bold small text-info"><i
-                                                class="bi bi-calendar-event me-1"></i>Interview Scheduled</h6>
-                                        <div class="small">
-                                            {{ \Carbon\Carbon::parse($app['interview_date'])->format('M d, Y') }} at
-                                            {{ $app['interview_time'] }}</div>
+                                @if ($app->interview)
+                                    <div class="row g-3 border-top">
+                                        <div class="col-6 ">
+                                            <h6 class="fw-bold small text-info"><i
+                                                    class="bi bi-calendar-event me-1"></i>Interview Scheduled</h6>
+                                            <div class="small">
+                                                {{ \Carbon\Carbon::parse($app->interview->scheduled_at)->format('M d, Y') }}
+                                                at
+                                                {{ \Carbon\Carbon::parse($app->interview->scheduled_at)->format('h:i a') }}
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <h6 class="fw-bold small text-info"><i
+                                                    class="bi bi-calendar-event me-1"></i>Interview Mode</h6>
+                                            <div class="small">
+                                                {{ ucfirst($app->interview->mode) }}
+
+                                            </div>
+                                        </div>
+
+                                        <div class="col-6">
+                                            <h6 class="fw-bold small text-info"><i
+                                                    class="bi bi-calendar-event me-1"></i>Interviewer Name</h6>
+                                            <div class="small">
+                                                {{ $app->interview->interviewer->name }}
+
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <h6 class="fw-bold small text-info"><i
+                                                    class="bi bi-calendar-event me-1"></i>Interviewer companyEmail</h6>
+                                            <div class="small">
+                                                {{ $app->interview->interviewer->email }}
+
+                                            </div>
+                                        </div>
+
+
                                     </div>
                                 @endif
                             </div>

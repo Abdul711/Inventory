@@ -80,6 +80,20 @@ class AccountSeeder extends Seeder
         );
 
 
+          Account::updateOrCreate(
+                ['code' => '1150'],
+                [
+                    'parent_id' => $currentAssets->id,
+                    'name' => 'Employee Salary Advances',
+                    'type' => 'asset',
+                    'subtype' => 'employee_advance',
+                    'is_postable' => true,
+                    'normal_balance' => 'debit',
+                    'is_group' => false,
+                    'is_active' => true,
+                ]
+            );
+
         /*
         |--------------------------------------------------------------------------
         | LIABILITIES
@@ -148,75 +162,7 @@ Account::firstOrCreate(
 |--------------------------------------------------------------------------
 */
 
-$expenses = Account::firstOrCreate(
-    ['code' => '6000'],
-    [
-        'name' => 'Expenses',
-        'type' => 'expense',
-        'normal_balance' => 'debit',
-        'is_group' => true,
-    ]
-);
 
-Account::firstOrCreate(
-    ['code' => '6100'],
-    [
-        'parent_id' => $expenses->id,
-        'name' => 'Salary Expense',
-        'type' => 'expense',
-        'subtype' => 'salary',
-        'normal_balance' => 'debit',
-        'is_group' => false,
-    ]
-);
-
-Account::firstOrCreate(
-    ['code' => '6200'],
-    [
-        'parent_id' => $expenses->id,
-        'name' => 'Rent Expense',
-        'type' => 'expense',
-        'subtype' => 'rent',
-        'normal_balance' => 'debit',
-        'is_group' => false,
-    ]
-);
-
-Account::firstOrCreate(
-    ['code' => '6300'],
-    [
-        'parent_id' => $expenses->id,
-        'name' => 'Utilities Expense',
-        'type' => 'expense',
-        'subtype' => 'utilities',
-        'normal_balance' => 'debit',
-        'is_group' => false,
-    ]
-);
-
-Account::firstOrCreate(
-    ['code' => '6400'],
-    [
-        'parent_id' => $expenses->id,
-        'name' => 'Marketing Expense',
-        'type' => 'expense',
-        'subtype' => 'marketing',
-        'normal_balance' => 'debit',
-        'is_group' => false,
-    ]
-);
-
-Account::firstOrCreate(
-    ['code' => '6500'],
-    [
-        'parent_id' => $expenses->id,
-        'name' => 'Delivery Expense',
-        'type' => 'expense',
-        'subtype' => 'delivery',
-        'normal_balance' => 'debit',
-        'is_group' => false,
-    ]
-);
 
 $equity = Account::firstOrCreate(
     ['code' => '3000'],
@@ -239,6 +185,238 @@ Account::firstOrCreate(
         'is_group' => false,
     ]
 );
+
+$expenses = Account::updateOrCreate(
+            ['code' => '5000'],
+            [
+                'name' => 'Expenses',
+                'type' => 'expense',
+                'subtype' => 'operating_expense',
+                'parent_id' => null,
+                'is_postable' => false,
+                'normal_balance' => 'debit',
+                'is_group' => true,
+                'is_active' => true,
+            ]
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | 5100 - Payroll Expenses
+        |--------------------------------------------------------------------------
+        */
+
+        $payrollExpenses = Account::updateOrCreate(
+            ['code' => '5100'],
+            [
+                'name' => 'Payroll Expenses',
+                'type' => 'expense',
+                'subtype' => 'payroll',
+                'parent_id' => $expenses->id,
+                'is_postable' => false,
+                'normal_balance' => 'debit',
+                'is_group' => true,
+                'is_active' => true,
+            ]
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Payroll child accounts
+        |--------------------------------------------------------------------------
+        */
+
+
+                $liabilities = [
+                [
+                    'code' => '2120',
+                    'name' => 'Salary Payable',
+                ],
+                [
+                    'code' => '2130',
+                    'name' => 'Payroll Tax Payable',
+                ],
+                [
+                    'code' => '2140',
+                    'name' => 'Provident Fund Payable',
+                ],
+                [
+                    'code' => '2150',
+                    'name' => 'Other Payroll Deductions Payable',
+                ],
+                [
+                    'code' => '2160',
+                    'name' => 'Employer Contribution Payable',
+                ],
+            ];
+
+            foreach ($liabilities as $liability) {
+                Account::updateOrCreate(
+                    ['code' => $liability['code']],
+                    [
+                        'parent_id' => $currentLiabilities->id,
+                        'name' => $liability['name'],
+                        'type' => 'liability',
+                        'subtype' => 'payroll',
+                        'is_postable' => true,
+                        'normal_balance' => 'credit',
+                        'is_group' => false,
+                        'is_active' => true,
+                    ]
+                );
+            }
+
+        Account::updateOrCreate(
+            ['code' => '5110'],
+            [
+                'name' => 'Basic Salary Expense',
+                'type' => 'expense',
+                'subtype' => 'payroll',
+                'parent_id' => $payrollExpenses->id,
+                'is_postable' => true,
+                'normal_balance' => 'debit',
+                'is_group' => false,
+                'is_active' => true,
+            ]
+        );
+
+        Account::updateOrCreate(
+            ['code' => '5120'],
+            [
+                'name' => 'Allowance Expense',
+                'type' => 'expense',
+                'subtype' => 'payroll',
+                'parent_id' => $payrollExpenses->id,
+                'is_postable' => true,
+                'normal_balance' => 'debit',
+                'is_group' => false,
+                'is_active' => true,
+            ]
+        );
+
+        Account::updateOrCreate(
+            ['code' => '5130'],
+            [
+                'name' => 'Overtime Expense',
+                'type' => 'expense',
+                'subtype' => 'payroll',
+                'parent_id' => $payrollExpenses->id,
+                'is_postable' => true,
+                'normal_balance' => 'debit',
+                'is_group' => false,
+                'is_active' => true,
+            ]
+        );
+
+        Account::updateOrCreate(
+            ['code' => '5140'],
+            [
+                'name' => 'Bonus Expense',
+                'type' => 'expense',
+                'subtype' => 'payroll',
+                'parent_id' => $payrollExpenses->id,
+                'is_postable' => true,
+                'normal_balance' => 'debit',
+                'is_group' => false,
+                'is_active' => true,
+            ]
+        );
+
+        Account::updateOrCreate(
+            ['code' => '5150'],
+            [
+                'name' => 'Employer Contribution',
+                'type' => 'expense',
+                'subtype' => 'payroll',
+                'parent_id' => $payrollExpenses->id,
+                'is_postable' => true,
+                'normal_balance' => 'debit',
+                'is_group' => false,
+                'is_active' => true,
+            ]
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Other Operating Expenses
+        |--------------------------------------------------------------------------
+        */
+
+        Account::updateOrCreate(
+            ['code' => '5200'],
+            [
+                'name' => 'Rent Expense',
+                'type' => 'expense',
+                'subtype' => 'operating_expense',
+                'parent_id' => $expenses->id,
+                'is_postable' => true,
+                'normal_balance' => 'debit',
+                'is_group' => false,
+                'is_active' => true,
+            ]
+        );
+
+        Account::updateOrCreate(
+            ['code' => '5300'],
+            [
+                'name' => 'Utilities Expense',
+                'type' => 'expense',
+                'subtype' => 'operating_expense',
+                'parent_id' => $expenses->id,
+                'is_postable' => true,
+                'normal_balance' => 'debit',
+                'is_group' => false,
+                'is_active' => true,
+            ]
+        );
+
+        Account::updateOrCreate(
+            ['code' => '5400'],
+            [
+                'name' => 'Marketing Expense',
+                'type' => 'expense',
+                'subtype' => 'operating_expense',
+                'parent_id' => $expenses->id,
+                'is_postable' => true,
+                'normal_balance' => 'debit',
+                'is_group' => false,
+                'is_active' => true,
+            ]
+        );
+
+        Account::updateOrCreate(
+            ['code' => '5500'],
+            [
+                'name' => 'Delivery Expense',
+                'type' => 'expense',
+                'subtype' => 'operating_expense',
+                'parent_id' => $expenses->id,
+                'is_postable' => true,
+                'normal_balance' => 'debit',
+                'is_group' => false,
+                'is_active' => true,
+            ]
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | 5600 - Other Operating Expenses
+        |--------------------------------------------------------------------------
+        */
+
+        Account::updateOrCreate(
+            ['code' => '5600'],
+            [
+                'name' => 'Other Operating Expenses',
+                'type' => 'expense',
+                'subtype' => 'operating_expense',
+                'parent_id' => $expenses->id,
+                'is_postable' => false,
+                'normal_balance' => 'debit',
+                'is_group' => true,
+                'is_active' => true,
+            ]
+        );
 
     }
 }
