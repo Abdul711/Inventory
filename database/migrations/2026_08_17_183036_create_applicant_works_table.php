@@ -16,7 +16,8 @@ return new class extends Migration
              $table->foreignId('applicant_id')
             ->constrained('applicants')
             ->cascadeOnDelete();
-                 $table->decimal("month_of_experience");
+            $table->decimal("month_of_experience");
+        
             $table->string('designation');
             $table->string('company');
             $table->date('start_date');

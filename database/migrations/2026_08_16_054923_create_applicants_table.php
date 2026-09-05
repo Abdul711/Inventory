@@ -26,7 +26,7 @@ return new class extends Migration
             $table->enum("martial_status",["single",'married',"divorced"])->default('single');
          $table->text("bio")->nullable();
 $table->unique(['email', 'cnic']);
-
+    $table->decimal("previous_salary")->default(0);
             $table->timestamps();
         });
 

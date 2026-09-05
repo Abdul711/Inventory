@@ -208,7 +208,25 @@ new class extends Component {
         if (auth('applicant')->check()) {
             $applicantworks = auth('applicant')->user()->works;
             $applicanteducations = auth('applicant')->user()->educations;
-
+            if ($applicantworks->count() == 0) {
+                $this->experiences[] = [
+                    'company' => '',
+                    'designation' => '',
+                    'from' => '',
+                    'to' => '',
+                    'responsibilities' => '',
+                ];
+            }
+            if ($applicanteducations->count() == 0) {
+                $this->educations[] = [
+                    'degree' => '',
+                    'institute' => '',
+                    'grade' => '',
+                    'type' => '',
+                    'yearstart' => '',
+                    'yearend' => '',
+                ];
+            }
             foreach ($applicanteducations as $applicanteducation) {
                 $this->educations[] = [
                     'degree' => $applicanteducation->degree_name,
@@ -221,6 +239,7 @@ new class extends Component {
                 ];
             }
             //company
+
             foreach ($applicantworks as $applicantwork) {
                 $this->experiences[] = [
                     'company' => $applicantwork->company,
@@ -243,6 +262,7 @@ new class extends Component {
             $this->form['gender'] = auth('applicant')->user()->gender;
             $this->form['address'] = auth('applicant')->user()->address;
             $this->photo = auth('applicant')->user()?->photo;
+            $this->form['current_salary'] = auth('applicant')->user()->previous_salary;
         } else {
             $this->educations[] = [
                 'degree' => '',
@@ -259,7 +279,6 @@ new class extends Component {
                 'designation' => '',
                 'from' => '',
                 'to' => '',
-                'previous_salary' => '',
                 'responsibilities' => '',
             ];
         }
@@ -480,7 +499,7 @@ new class extends Component {
                     'bio' => $this->form['about_yourself'],
                     'martial_status' => $this->form['martial_status'],
                     'photo' => $fileName,
-
+                    'previous_salary' => $this->form['current_salary'],
                     'linkedin' => $this->form['linkedin'],
                 ]);
                 $applicant_id = $applicant->id;

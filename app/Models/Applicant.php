@@ -12,6 +12,11 @@ class Applicant extends Authenticatable
 {
     return $this->hasMany(JobApplication::class, 'applicant_id');
 }
+public function interviews(){
+    return $this->hasMany(Interview::class, 'applicant_id');
+}
+
+
    protected function casts(): array
     {
         return [

@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
 use Livewire\Component;
+use App\Models\Applicant;
 use Livewire\WithFileUploads;
 
 new class extends Component {
@@ -87,7 +88,7 @@ new class extends Component {
                 'reg_phone' => ['required', 'string', 'max:255'],
                 'reg_password' => ['required', 'confirmed', Password::min(8)],
                 'reg_father_name' => ['required', 'string', 'max:255'],
-                'reg_photo' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+                'reg_photo' => ['required', 'image', 'mimes:jpg,jpeg,png,webp'],
                 'reg_martial_status' => ['required', 'in:single,married,divorced'],
                 'reg_cnic' => ['required', 'regex:/^\d{5}-\d{7}-\d$/', 'max:255'],
                 'reg_date_of_birth' => ['required', 'date', 'before:today'],
@@ -107,7 +108,7 @@ new class extends Component {
 
         if ($this->reg_photo) {
             $fileName = 'applicant-' . time() . '-' . str()->random(8) . '.' . $this->reg_photo->getClientOriginalExtension();
-            $photoPath = $this->reg_photo->storeAs('applicant', 'public');
+            $photoPath = $this->reg_photo->storeAs('applicant', $fileName, 'public');
         }
 
         $user = Applicant::create([

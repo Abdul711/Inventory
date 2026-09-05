@@ -109,45 +109,6 @@ new class extends Component {
     public function getRecentApplicationsProperty()
     {
         return auth('applicant')->user()->jobApplications;
-        return [
-            [
-                'id' => 1,
-                'job_title' => 'Senior Laravel Developer',
-                'status' => 'interview',
-                'applied_date' => '2024-01-15',
-                'type' => 'Full Time',
-                'has_interview' => true,
-                'interview_date' => '2024-02-15',
-                'interview_time' => '10:00 AM',
-            ],
-            [
-                'id' => 2,
-                'job_title' => 'Frontend Developer',
-                'status' => 'interview',
-                'applied_date' => '2024-01-12',
-                'type' => 'Full Time',
-                'has_interview' => true,
-                'interview_date' => '2024-02-16',
-                'interview_time' => '02:30 PM',
-            ],
-            [
-                'id' => 3,
-                'job_title' => 'UI/UX Designer',
-                'status' => 'offered',
-                'applied_date' => '2024-01-10',
-                'type' => 'Contract',
-                'has_interview' => false,
-            ],
-            [
-                'id' => 4,
-                'job_title' => 'DevOps Engineer',
-                'company' => 'Cloud Systems',
-                'status' => 'rejected',
-                'applied_date' => '2024-01-08',
-                'type' => 'Full Time',
-                'has_interview' => false,
-            ],
-        ];
     }
 
     // Offers data (replace with real DB data)
@@ -180,6 +141,12 @@ new class extends Component {
     // Upcoming Interviews
     public function getUpcomingInterviewsProperty()
     {
+        return Interview::query()
+            ->with(['jobApplication.jobPosting'])
+            ->where('applicant_id', auth('applicant')->id())
+            ->where('scheduled_at', '>', now())
+            ->orderBy('scheduled_at')
+            ->get();
         return [
             [
                 'id' => 1,
@@ -821,7 +788,9 @@ new class extends Component {
                             <tbody>
                                 @forelse ($this->upcomingInterviews as $interview)
                                     <tr>
-                                        <td class="ps-3 ps-md-4 fw-semibold small">{{ $interview['job_title'] }}</td>
+                                        <td class="ps-3 ps-md-4 fw-semibold small">
+                                            {{ $interview['jobApplication']['jobPosting']['department']['name'] }}
+                                        </td>
                                         <td>
                                             <div class="small">
                                                 {{ \Carbon\Carbon::parse($interview['date'])->format('M d, Y') }}</div>
@@ -830,7 +799,7 @@ new class extends Component {
                                         <td class="d-none d-lg-table-cell"><span
                                                 class="badge bg-secondary small">{{ $interview['type'] }}</span></td>
                                         <td><span
-                                                class="badge bg-{{ $interview['status'] === 'scheduled' ? 'success' : 'warning' }} rounded-pill small">{{ $interview['status'] === 'scheduled' ? 'Confirmed' : 'Pending' }}</span>
+                                                class="badge bg-{{ $interview['status'] === 'completed' ? 'success' : 'warning' }} rounded-pill small">{{ $interview['status'] == 'completed' ? 'Completed' : 'Scheduled' }}</span>
                                         </td>
                                         <td class="pe-3 pe-md-4 text-end">
                                             <div class="d-flex justify-content-end gap-1 gap-md-2">
@@ -1786,7 +1755,7 @@ new class extends Component {
                         <div class="modal-body p-4 pt-0">
                             <div class="row g-3">
                                 <div class="col-md-6"><small class="text-muted d-block">Interviewer</small><strong
-                                        class="small">{{ $int['interviewer'] }}</strong></div>
+                                        class="small">{{ $int['interviewer']['name'] }}</strong></div>
                                 <div class="col-md-6"><small class="text-muted d-block">Date & Time</small><strong
                                         class="small">{{ \Carbon\Carbon::parse($int['date'])->format('M d, Y') }} at
                                         {{ $int['time'] }}</strong></div>
