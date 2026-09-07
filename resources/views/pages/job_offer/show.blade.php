@@ -497,7 +497,7 @@ new class extends Component {
                     <div>
 
                         {{ $offer['notice_period_days'] }}
-                        Days
+                        Month
 
                     </div>
 

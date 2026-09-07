@@ -6,7 +6,15 @@ new class extends Component {
     public $products;
     public function mount()
     {
-        $this->products = Product::with(['category', 'brand', 'supplier', 'warehouse'])->get();
+        $loginedUserRole = auth()->user()->role->name;
+        if ($loginedUserRole != 'Supplier') {
+            $this->products = Product::with(['category', 'brand', 'supplier', 'warehouse'])->get();
+        } else {
+            $supplier_id = auth()->user()->supplier->id;
+            $this->products = Product::with(['category', 'brand', 'supplier', 'warehouse'])
+                ->where('supplier_id', $supplier_id)
+                ->get();
+        }
     }
 };
 ?>

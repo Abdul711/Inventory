@@ -169,7 +169,7 @@
     <div class="divider"></div>
 
     <div class="title">
-        Appointment Letter
+        Offer Letter
     </div>
 
     <table class="meta-table">
@@ -211,9 +211,9 @@
     </p>
 
     <p>
-        We are pleased to appoint you as
+        We are pleased to offer you a position as
         <strong>
-            {{ $jobOffer->jobApplication?->jobPosting?->job_title ?? ($jobOffer->designation?->name ?? 'Employee') }}
+            {{ $jobOffer->jobApplication?->jobPosting?->designation->name ?? ($jobOffer->designation?->name ?? 'Employee') }}
         </strong>
 
         @if ($jobOffer->jobApplication?->jobPosting?->department)
@@ -240,53 +240,28 @@
 
     <table class="detail-table">
 
+
+
+
+
+
+
+
         <tr>
-            <td class="label">Employee Name</td>
+            <td class="label">Offer Expiry Date</td>
 
             <td>
-                {{ $jobOffer->applicant->full_name ?? $jobOffer->applicant->name }}
+                {{ \Carbon\Carbon::parse($jobOffer->expiry_date)->format('d M Y') }}
             </td>
         </tr>
 
-        <tr>
-            <td class="label">Position</td>
-
-            <td>
-                {{ $jobOffer->jobApplication?->jobPosting?->job_title ?? ($jobOffer->designation?->name ?? '-') }}
-            </td>
-        </tr>
-
-        <tr>
-            <td class="label">Department</td>
-
-            <td>
-                {{ $jobOffer->jobApplication?->jobPosting?->department?->name ?? '-' }}
-            </td>
-        </tr>
-
-        <tr>
-            <td class="label">Offer Number</td>
-
-            <td>
-                {{ $jobOffer->offer_number }}
-            </td>
-        </tr>
-
-        <tr>
-            <td class="label">Offer Date</td>
-
-            <td>
-                {{ \Carbon\Carbon::parse($jobOffer->offer_date)->format('d M Y') }}
-            </td>
-        </tr>
-
-        @if (!empty($jobOffer->work_durations))
+        @if (!empty($jobOffer->duty_durations))
             <tr>
-                <td class="label">Work Duration</td>
+                <td class="label">Duty Duration</td>
 
                 <td>
-                    {{ $jobOffer->work_durations }}
-                    {{ $jobOffer->work_durations == 1 ? 'Month' : 'Months' }}
+                    {{ $jobOffer->duty_durations }}
+                    {{ $jobOffer->duty_durations == 1 ? 'Hour' : 'Hours' }}
                 </td>
             </tr>
         @endif
@@ -296,37 +271,33 @@
                 <td class="label">Working Days</td>
 
                 <td>
-                    {{ $jobOffer->working_days }}
+                    <ol>
+                        @foreach ($jobOffer->working_days as $working_day)
+                            <li> {{ $working_day }}</li>
+                        @endforeach
+                    </ol>
                 </td>
             </tr>
         @endif
 
-        @if (!empty($jobOffer->joining_date))
-            <tr>
-                <td class="label">Joining Date</td>
 
-                <td>
-                    {{ \Carbon\Carbon::parse($jobOffer->joining_date)->format('d M Y') }}
-                </td>
-            </tr>
-        @endif
 
-        @if (!empty($jobOffer->employee_type))
+        @if (!empty($jobOffer->jobApplication->jobPosting->employment_type))
             <tr>
                 <td class="label">Employment Type</td>
 
                 <td>
-                    {{ ucwords(str_replace('_', ' ', $jobOffer->employee_type)) }}
+                    {{ str()->headline($jobOffer->jobApplication->jobPosting->employment_type) }}
                 </td>
             </tr>
         @endif
 
-        @if (!empty($jobOffer->job_mode))
+        @if (!empty($jobOffer->jobApplication->jobPosting->work_mode))
             <tr>
                 <td class="label">Job Mode</td>
 
                 <td>
-                    {{ ucwords(str_replace('_', ' ', $jobOffer->job_mode)) }}
+                    {{ str()->headline($jobOffer->jobApplication->jobPosting->work_mode) }}
                 </td>
             </tr>
         @endif
@@ -345,7 +316,7 @@
         </div>
 
         <div class="salary">
-            PKR {{ number_format($jobOffer->approved_salary ?? 0, 2) }}
+            PKR {{ number_format($jobOffer->approved_salary ?? $jobOffer->candidate_expected_salary, 2) }}
         </div>
 
         <div>
@@ -358,69 +329,131 @@
     <div class="section-title">
         Terms and Conditions
     </div>
-
+    @php
+        $terms = $jobOffer->terms_conditions;
+    @endphp
     <ol class="terms">
+        @if (empty($terms))
+            <li>
+                You will perform the duties and responsibilities associated with your
+                assigned position and any additional reasonable responsibilities
+                assigned by management.
+            </li>
 
-        <li>
-            You will perform the duties and responsibilities associated with your
-            assigned position and any additional reasonable responsibilities
-            assigned by management.
-        </li>
+            <li>
+                You are required to comply with all company policies, rules,
+                procedures and standards of professional conduct.
+            </li>
 
-        <li>
-            You are required to comply with all company policies, rules,
-            procedures and standards of professional conduct.
-        </li>
+            <li>
+                You must maintain confidentiality regarding company data, customer
+                information, employee information, financial records, systems,
+                and other confidential information.
+            </li>
 
-        <li>
-            You must maintain confidentiality regarding company data, customer
-            information, employee information, financial records, systems,
-            software, source code and other confidential information.
-        </li>
+            <li>
+                Your salary will be paid according to the company's payroll schedule
+                and will be subject to applicable deductions and taxes.
+            </li>
 
-        <li>
-            Your salary will be paid according to the company's payroll schedule
-            and will be subject to applicable deductions and taxes.
-        </li>
+            <li>
+                You are required to follow the company's attendance, leave, working
+                hours and workplace policies.
+            </li>
 
-        <li>
-            You are required to follow the company's attendance, leave, working
-            hours and workplace policies.
-        </li>
+            <li>
+                All company property, records, documents, devices and credentials
+                provided to you remain the property of the company.
+            </li>
 
-        <li>
-            All company property, records, documents, devices and credentials
-            provided to you remain the property of the company.
-        </li>
+            <li>
+                Any false information or fraudulent documentation submitted during
+                recruitment may result in disciplinary action or termination according
+                to company policy and applicable law.
+            </li>
+        @else
+            @foreach ($terms as $term)
+                <li>
+                    {{ $term }}
+                </li>
+            @endforeach
+        @endif
 
-        <li>
-            Any false information or fraudulent documentation submitted during
-            recruitment may result in disciplinary action or termination according
-            to company policy and applicable law.
-        </li>
 
-        @if (!empty($jobOffer->work_durations))
+        {{--
+        @if (!empty($jobOffer->duty_durations))
             <li>
                 Your employment duration under this appointment is
                 <strong>
-                    {{ $jobOffer->work_durations }}
-                    {{ $jobOffer->work_durations == 1 ? 'month' : 'months' }}
+                    {{ $jobOffer->duty_durations }}
+                    {{ $jobOffer->duty_durations == 1 ? 'hour' : 'hours' }}
                 </strong>,
                 unless otherwise extended or modified by the company.
             </li>
         @endif
 
+        --}}
+        <li>
+            If you accepted the offer please returned the signed letter to HR department before
+            <strong> {{ \Carbon\Carbon::parse($jobOffer->expiry_date)->format('d M Y') }}
+            </strong>
+            otherwise offer will be cancelled.
+
+        </li>
+        <li> Your employment will be subject to the probation period specified in your offer letter. Your performance,
+            conduct, attendance, and suitability for the position may be evaluated during this period.
+        </li>
+        <li>
+            You will be entitled to leaves, holidays, and other time-off benefits in accordance with company policy and
+            applicable employment laws.
+        </li>
+        <li>
+            You are expected to maintain professional behavior and must not engage in harassment, discrimination, fraud,
+            misconduct, violence, or any activity that violates company policy or applicable law.
+        </li>
+        <li>
+            Either you or the company may terminate the employment relationship by providing the applicable notice
+            period
+            specified in your offer letter, employment agreement, company policy, and applicable law.
+        </li>
+        <li>
+            Upon resignation, termination, or completion of employment, you must return all company property, documents,
+            equipment, devices, access cards, credentials, records, and other company resources in your possession.
+        </li>
+        <li>
+            You must protect company passwords, system credentials, and other access information and must not share them
+            with unauthorized persons.
+        </li>
+        <li>
+
+            Your employment and continued employment may be subject to verification of educational qualifications,
+            previous employment, references, identity documents, and other information provided during recruitment,
+            where permitted
+            by applicable law.
+        </li>
+        <li>
+            Any changes to your designation, department, duties, salary, benefits, working arrangements, or other
+            employment
+            conditions will be handled in accordance with company policy, the employment agreement, and applicable law.
+        </li>
+        <li>
+            By signing and returning this offer letter, you confirm that you have read, understood, and accepted the
+            terms
+            and conditions of employment stated in this letter.
+        </li>
     </ol>
+    <br>
 
 
-    @if (!empty($jobOffer->notes))
+
+    @if (!empty($jobOffer->benefits))
 
         <div class="section-title">
-            Additional Terms
+            Benefits
         </div>
 
         @php
-            $notes = is_array($jobOffer->notes) ? $jobOffer->notes : json_decode($jobOffer->notes, true);
+            $notes = is_array($jobOffer->benefits) ? $jobOffer->benefits : json_decode($jobOffer->benefits, true);
         @endphp
 
         @if (is_array($notes))
@@ -433,7 +466,7 @@
 
             </ol>
         @else
-            <p>{{ $jobOffer->notes }}</p>
+            <p>{{ $jobOffer->benefits }}</p>
         @endif
 
     @endif

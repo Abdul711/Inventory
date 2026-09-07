@@ -140,6 +140,9 @@ new class extends Component {
                                     Edit
                                 </a>
 
+                                <a href="{{ route('jobs.offers.letters.download', $offer['id']) }}">
+                                    Download Offer Letter
+                                </a>
                                 <a href="{{ route('jobs.offers.show', $offer['id']) }}"
                                     class="btn btn-sm btn-info rounded-pill text-white">
                                     View

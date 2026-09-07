@@ -301,7 +301,7 @@ new class extends Component {
                     @endphp
 
                     <span class="badge {{ $statusClass }} fs-6">
-                        {{ ucfirst($application['status']) }}
+                        {{ str()->headline($application['status']) }}
                     </span>
 
                 </div>
@@ -830,7 +830,7 @@ new class extends Component {
                         @endphp
 
                         <span class="badge {{ $statusClass }}">
-                            {{ ucfirst($application['status']) }}
+                            {{ str()->headline($application['status']) }}
                         </span>
 
                     </div>

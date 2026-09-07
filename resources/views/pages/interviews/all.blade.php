@@ -298,7 +298,11 @@ new class extends Component {
                                         class="btn btn-sm btn-primary rounded-pill">
                                         View
                                     </a>
-
+                                    <a href="{{ route('jobs.interviews.entry-pass', $interview['id']) }}"
+                                        class="btn btn-primary">
+                                        <i class="fas fa-download"></i>
+                                        Download Entry Pass
+                                    </a>
 
                                     <button type="button" class="btn btn-sm btn-danger rounded-pill">
                                         Delete

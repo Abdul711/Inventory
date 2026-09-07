@@ -204,6 +204,11 @@ new class extends Component {
 
     public function suppliers()
     {
+        $loginedUserRole = auth()->user()->role->name;
+        if ($loginedUserRole == 'Supplier') {
+            $supplier_id = auth()->user()->supplier->id;
+            return Supplier::where('id', $supplier_id)->get();
+        }
         return Supplier::get();
     }
 

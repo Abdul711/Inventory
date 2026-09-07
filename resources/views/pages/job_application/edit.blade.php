@@ -38,6 +38,7 @@ new class extends Component {
     public $contract_start_date;
     public $probation_month;
     public $notice_period;
+    public $password;
     public function addTerm()
     {
         $this->terms[] = [];
@@ -79,6 +80,21 @@ new class extends Component {
             $this->experience_score = $this->application->screening->experience_score;
             $this->overall_score = $this->application->screening->overall_score;
             $this->screened_by = $this->application->screening->screened_by;
+        }
+        if ($this->application->offer) {
+            // dd($this->application->offer->terms_conditions);
+            if (!empty($this->application->offer->terms_conditions)) {
+                $this->terms = $this->application->offer->terms_conditions;
+            }
+            $this->benefits = $this->application->offer->benefits;
+            $this->contact_person = $this->application->offer->contact_person;
+            $this->contact_email = $this->application->offer->contact_email;
+            $this->proposedSalary = $this->application->offer->salary_proposed;
+            $this->duty_durations = $this->application->offer->duty_durations;
+            $this->contract_start_date = date('Y-m-d', strtotime($this->application->offer->contract_start_date));
+            $this->probation_month = $this->application->offer->probation_months;
+            $this->notice_period = $this->application->offer->notice_period_days;
+            $this->working_days = explode(',', $this->application->offer->working_days);
         }
         if ($interview) {
             $this->interviewer_id = $interview->interviewer_id;
@@ -145,7 +161,7 @@ new class extends Component {
                     $contact_person = $this->contact_person;
                     $working_days = $this->working_days;
                     $applicant_id = $this->application->applicant_id;
-                    $terms_conditions = implode(',', $this->terms);
+                    $terms_conditions = $this->terms;
                     $benefits = $this->benefits;
                     $proposedSalary = $this->proposedSalary;
                     $duty_durations = $this->duty_durations;
@@ -792,7 +808,21 @@ new class extends Component {
                                 @enderror
                             </div>
 
+                            <div class="col-md-4">
+                                <label for="password" class="form-label fw-semibold">
+                                    Password
+                                </label>
 
+                                <input type="password" id="password" wire:model="password"
+                                    class="form-control @error('password') is-invalid @enderror"
+                                    placeholder="Enter contact name">
+
+                                @error('password')
+                                    <div class="invalid-feedback">
+                                        {{ $message }}
+                                    </div>
+                                @enderror
+                            </div>
                             {{-- Emergency Contact Number --}}
                             <div class="col-md-4">
                                 <label for="emergency_contact_number" class="form-label fw-semibold">

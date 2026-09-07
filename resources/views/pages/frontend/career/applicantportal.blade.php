@@ -32,7 +32,7 @@ new class extends Component {
     public $proposedSalary = '';
     public $negotiationNotes = '';
 
-    // NEW: Withdrawal and Decline
+    // Withdrawal and Decline
     public $showWithdrawModal = false;
     public $withdrawOfferId = null;
     public $withdrawReason = '';
@@ -40,6 +40,10 @@ new class extends Component {
     public $showDeclineModal = false;
     public $declineOfferId = null;
     public $declineReason = '';
+
+    // Accept Offer
+    public $showAcceptModal = false;
+    public $acceptingOfferId = null;
 
     // Education Form Variables
     public $showEducationForm = false;
@@ -114,31 +118,10 @@ new class extends Component {
     // Offers data (replace with real DB data)
     public function getOffersProperty()
     {
-        return [
-            [
-                'id' => 3,
-                'job_title' => 'UI/UX Designer',
-                'company' => 'Creative Agency',
-                'status' => 'offered',
-                'applied_date' => '2024-01-10',
-                'type' => 'Contract',
-                'offer_details' => [
-                    'salary' => '150,000 PKR/month',
-                    'start_date' => '2024-03-01',
-                    'position' => 'Senior UI/UX Designer',
-                    'department' => 'Design',
-                    'benefits' => 'Health insurance, 20 days annual leave, remote work allowance',
-                    'offer_letter' => 'offer_letter_3.pdf',
-                    'expiry_date' => '2024-02-28',
-                    'contact_person' => 'Zara Malik',
-                    'contact_email' => 'zara@creativeagency.com',
-                    'additional_notes' => 'Please bring portfolio to the onboarding session.',
-                ],
-            ],
-        ];
+        return auth('applicant')->user()->offers;
     }
 
-    // Upcoming Interviews
+    // Upcoming Interviews (used for dashboard quick view)
     public function getUpcomingInterviewsProperty()
     {
         return Interview::query()
@@ -147,44 +130,16 @@ new class extends Component {
             ->where('scheduled_at', '>', now())
             ->orderBy('scheduled_at')
             ->get();
-        return [
-            [
-                'id' => 1,
-                'job_title' => 'Senior Laravel Developer',
-                'company' => 'Tech Solutions Inc.',
-                'interviewer' => 'Sarah Ahmed',
-                'date' => '2024-02-15',
-                'time' => '10:00 AM',
-                'type' => 'Technical',
-                'mode' => 'Video Call',
-                'status' => 'scheduled',
-                'meeting_link' => 'https://meet.google.com/abc-defg-hij',
-            ],
-            [
-                'id' => 2,
-                'job_title' => 'Frontend Developer',
-                'company' => 'Digital Innovations',
-                'interviewer' => 'Ali Khan',
-                'date' => '2024-02-16',
-                'time' => '02:30 PM',
-                'type' => 'HR',
-                'mode' => 'In-person',
-                'status' => 'scheduled',
-                'meeting_link' => null,
-            ],
-            [
-                'id' => 3,
-                'job_title' => 'UI/UX Designer',
-                'company' => 'Creative Agency',
-                'interviewer' => 'Zara Malik',
-                'date' => '2024-02-18',
-                'time' => '11:00 AM',
-                'type' => 'Portfolio Review',
-                'mode' => 'Video Call',
-                'status' => 'pending_confirmation',
-                'meeting_link' => 'https://meet.google.com/xyz-uvwx-yza',
-            ],
-        ];
+    }
+
+    // All Interviews (used in Interviews tab)
+    public function getAllInterviewsProperty()
+    {
+        return Interview::query()
+            ->with(['jobApplication.jobPosting'])
+            ->where('applicant_id', auth('applicant')->id())
+            ->orderBy('scheduled_at', 'asc')
+            ->get();
     }
 
     // Saved Jobs
@@ -348,7 +303,7 @@ new class extends Component {
         $this->closeNegotiate();
     }
 
-    // -------- WITHDRAWAL (NEW) --------
+    // -------- WITHDRAWAL --------
     public function openWithdraw($offerId)
     {
         $this->withdrawOfferId = $offerId;
@@ -369,12 +324,11 @@ new class extends Component {
             'withdrawReason' => 'required|string|max:1000',
         ]);
 
-        // Here you would update the application status to 'withdrawn' and store the reason.
         session()->flash('success', 'Your application has been withdrawn successfully.');
         $this->closeWithdraw();
     }
 
-    // -------- DECLINE OFFER (NEW) --------
+    // -------- DECLINE OFFER --------
     public function openDecline($offerId)
     {
         $this->declineOfferId = $offerId;
@@ -395,9 +349,34 @@ new class extends Component {
             'declineReason' => 'required|string|max:1000',
         ]);
 
-        // Here you would update the offer status to 'declined' and store the reason.
         session()->flash('success', 'Offer declined successfully.');
         $this->closeDecline();
+    }
+
+    // -------- ACCEPT OFFER (FIXED for Livewire v3) --------
+    public function openAccept($offerId)
+    {
+        $this->acceptingOfferId = $offerId;
+        $this->showAcceptModal = true;
+    }
+
+    public function closeAccept()
+    {
+        $this->showAcceptModal = false;
+        $this->acceptingOfferId = null;
+    }
+
+    public function submitAccept()
+    {
+        // Here you would update the offer status to 'accepted' in the database.
+        // For demonstration, we flash a success message and dispatch a browser event.
+        session()->flash('success', 'Offer accepted successfully!');
+
+        // Livewire v3: use $this->dispatch() to emit a browser event
+        $this->dispatch('show-alert', ['message' => 'Offer accepted successfully!']);
+
+        $this->closeAccept();
+        // Optionally refresh the offers list
     }
 
     // -------- PROFILE PHOTO UPLOAD --------
@@ -573,7 +552,9 @@ new class extends Component {
 
     public function applyJob($id)
     {
-        return redirect()->route('applicant.apply', $id);
+        return $this->redirectRoute('jobdetail', [
+            'id' => $id,
+        ]);
     }
 
     public function removeSavedJob($id)
@@ -670,7 +651,7 @@ new class extends Component {
                                 class="nav-link {{ $activeTab === 'interviews' ? 'active' : '' }} rounded-pill me-1">
                                 <i class="bi bi-calendar-event me-1"></i><span
                                     class="d-none d-sm-inline">Interviews</span>
-                                <span class="badge bg-danger ms-1">{{ $this->stats['upcoming_interviews'] }}</span>
+                                <span class="badge bg-danger ms-1">{{ $this->stats['total_interviews'] }}</span>
                             </button>
                         </li>
                         <li class="nav-item flex-shrink-0">
@@ -999,7 +980,7 @@ new class extends Component {
                     <div class="card border-0 shadow rounded-4">
                         <div class="card-header bg-white border-0 p-3 p-md-4">
                             <h5 class="fw-bold mb-0 fs-6 fs-md-5"><i
-                                    class="bi bi-clock-history text-info me-2"></i>Upcoming Interviews</h5>
+                                    class="bi bi-clock-history text-info me-2"></i>All Interviews</h5>
                         </div>
                         <div class="card-body p-0">
                             <div class="table-responsive">
@@ -1015,23 +996,25 @@ new class extends Component {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        @forelse ($this->upcomingInterviews as $interview)
+                                        @forelse ($this->allInterviews as $interview)
                                             <tr>
                                                 <td class="ps-3 ps-md-4 fw-semibold small">
-                                                    {{ $interview['job_title'] }}</td>
+                                                    {{ $interview['jobApplication']['jobPosting']['designation']['name'] }}
+                                                </td>
                                                 <td class="d-none d-lg-table-cell small">
-                                                    {{ $interview['interviewer'] }}</td>
+                                                    {{ $interview['interviewer']['name'] }}</td>
                                                 <td>
                                                     <div class="small">
-                                                        {{ \Carbon\Carbon::parse($interview['date'])->format('M d, Y') }}
-                                                    </div><small class="text-muted">{{ $interview['time'] }}</small>
+                                                        {{ \Carbon\Carbon::parse($interview['scheduled_at'])->format('M d, Y') }}
+                                                    </div><small
+                                                        class="text-muted">{{ $interview['scheduled_at']->format('h:i a') }}</small>
                                                 </td>
                                                 <td class="d-none d-xl-table-cell"><span
                                                         class="badge bg-light text-dark small"><i
-                                                            class="bi bi-{{ $interview['mode'] === 'Video Call' ? 'camera-video' : ($interview['mode'] === 'In-person' ? 'building' : 'telephone') }} me-1"></i>{{ $interview['mode'] }}</span>
+                                                            class="bi bi-{{ $interview['mode'] === 'online' ? 'camera-video' : ($interview['mode'] === 'physical' ? 'building' : 'telephone') }} me-1"></i>{{ $interview['mode'] }}</span>
                                                 </td>
                                                 <td><span
-                                                        class="badge bg-{{ $interview['status'] === 'scheduled' ? 'success' : 'warning' }} rounded-pill small">{{ $interview['status'] === 'scheduled' ? 'Confirmed' : 'Pending' }}</span>
+                                                        class="badge bg-{{ $interview['status'] === 'scheduled' ? 'success' : 'warning' }} rounded-pill small">{{ $interview['status'] }}</span>
                                                 </td>
                                                 <td class="pe-3 pe-md-4 text-end">
                                                     <div class="d-flex justify-content-end gap-1">
@@ -1041,6 +1024,12 @@ new class extends Component {
                                                                 class="btn btn-sm btn-primary rounded-pill px-2 px-md-3"><i
                                                                     class="bi bi-camera-video"></i></button>
                                                         @endif
+                                                        <a href="{{ route('jobs.interviews.entry-pass', $interview['id']) }}"
+                                                            class="btn btn-primary">
+                                                            <i class="fas fa-download"></i>
+                                                            Download Entry Pass
+                                                        </a>
+
                                                         <button wire:click="showInterview({{ $interview['id'] }})"
                                                             class="btn btn-sm btn-outline-primary rounded-pill px-2 px-md-3 small">Details</button>
                                                     </div>
@@ -1049,8 +1038,8 @@ new class extends Component {
                                         @empty
                                             <tr>
                                                 <td colspan="7" class="text-center py-4 text-muted"><i
-                                                        class="bi bi-calendar-check fs-2 d-block mb-2"></i>No upcoming
-                                                    interviews scheduled</td>
+                                                        class="bi bi-calendar-check fs-2 d-block mb-2"></i>No
+                                                    interviews found</td>
                                             </tr>
                                         @endforelse
                                     </tbody>
@@ -1115,21 +1104,23 @@ new class extends Component {
                         <div class="card border-0 shadow rounded-4 h-100">
                             <div class="card-body p-3 p-md-4 d-flex flex-column">
                                 <div class="d-flex justify-content-between align-items-start mb-2">
-                                    <h5 class="fw-bold mb-0 fs-6">{{ $offer['job_title'] }}</h5>
+                                    <h5 class="fw-bold mb-0 fs-6">
+                                        {{ $offer->jobApplication->jobPosting->designation->name }}</h5>
                                     <span class="badge bg-success rounded-pill small">Offered</span>
                                 </div>
-                                <p class="mb-2 small"><i class="bi bi-building me-1"></i>{{ $offer['company'] }}</p>
+
                                 <div class="mb-2">
-                                    <span class="badge bg-light text-dark small">{{ $offer['type'] }}</span>
+                                    <span
+                                        class="badge bg-light text-dark small">{{ $offer->jobApplication->jobPosting->employment_type }}</span>
                                     <span class="badge bg-info text-dark small ms-1"><i
-                                            class="bi bi-currency-rupee me-1"></i>{{ $offer['offer_details']['salary'] }}</span>
+                                            class="bi bi-currency-rupee me-1"></i>{{ $offer->approved_salary ?? $offer->candidate_expected_salary }}</span>
                                 </div>
                                 <div class="mt-auto">
                                     <div class="d-flex flex-wrap justify-content-between align-items-center mb-2">
                                         <small class="text-muted">Start Date:
-                                            {{ \Carbon\Carbon::parse($offer['offer_details']['start_date'])->format('M d, Y') }}</small>
+                                            {{ \Carbon\Carbon::parse($offer->start_date)->format('M d, Y') }}</small>
                                         <small class="text-muted">Expires:
-                                            {{ \Carbon\Carbon::parse($offer['offer_details']['expiry_date'])->format('M d, Y') }}</small>
+                                            {{ \Carbon\Carbon::parse($offer->expiry_date)->format('M d, Y') }}</small>
                                     </div>
                                     {{-- Action buttons row --}}
                                     <div class="d-flex flex-wrap gap-2">
@@ -1139,11 +1130,9 @@ new class extends Component {
                                         <button wire:click="openNegotiate({{ $offer['id'] }})"
                                             class="btn btn-outline-warning rounded-pill flex-fill small"><i
                                                 class="bi bi-currency-dollar me-1"></i> Negotiate</button>
-                                        {{-- NEW: Withdraw button --}}
                                         <button wire:click="openWithdraw({{ $offer['id'] }})"
                                             class="btn btn-outline-danger rounded-pill flex-fill small"><i
                                                 class="bi bi-x-circle me-1"></i> Withdraw</button>
-                                        {{-- NEW: Decline button --}}
                                         <button wire:click="openDecline({{ $offer['id'] }})"
                                             class="btn btn-outline-dark rounded-pill flex-fill small"><i
                                                 class="bi bi-hand-thumbs-down me-1"></i> Decline</button>
@@ -1740,7 +1729,7 @@ new class extends Component {
 
     {{-- INTERVIEW DETAIL MODAL --}}
     @if (!is_null($this->selectedInterviewId))
-        @php $int = collect($this->upcomingInterviews)->firstWhere('id', $this->selectedInterviewId); @endphp
+        @php $int = collect($this->allInterviews)->firstWhere('id', $this->selectedInterviewId); @endphp
         @if ($int)
             <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5);" tabindex="-1" role="dialog"
                 wire:ignore.self>
@@ -1748,7 +1737,8 @@ new class extends Component {
                     <div class="modal-content shadow rounded-4 border-0">
                         <div class="modal-header border-0 p-4">
                             <div>
-                                <h5 class="fw-bold mb-1">{{ $int['job_title'] }}</h5>
+                                <h5 class="fw-bold mb-1">
+                                    {{ $int['jobApplication']['jobPosting']['designation']['name'] }}</h5>
                             </div>
                             <button type="button" class="btn-close" wire:click="closeModal"></button>
                         </div>
@@ -1757,13 +1747,14 @@ new class extends Component {
                                 <div class="col-md-6"><small class="text-muted d-block">Interviewer</small><strong
                                         class="small">{{ $int['interviewer']['name'] }}</strong></div>
                                 <div class="col-md-6"><small class="text-muted d-block">Date & Time</small><strong
-                                        class="small">{{ \Carbon\Carbon::parse($int['date'])->format('M d, Y') }} at
-                                        {{ $int['time'] }}</strong></div>
+                                        class="small">{{ \Carbon\Carbon::parse($int['scheduled_at'])->format('M d, Y') }}
+                                        at
+                                        {{ $int['scheduled_at']->format('h:i a') }}</strong></div>
                                 <div class="col-md-6"><small class="text-muted d-block">Type</small><strong
                                         class="small">{{ $int['type'] }}</strong></div>
                                 <div class="col-md-6"><small class="text-muted d-block">Mode</small><span
                                         class="badge bg-light text-dark small"><i
-                                            class="bi bi-{{ $int['mode'] === 'Video Call' ? 'camera-video' : ($int['mode'] === 'In-person' ? 'building' : 'telephone') }} me-1"></i>{{ $int['mode'] }}</span>
+                                            class="bi bi-{{ $int['mode'] === 'online' ? 'camera-video' : ($int['mode'] === 'physical' ? 'building' : 'telephone') }} me-1"></i>{{ $int['mode'] }}</span>
                                 </div>
                                 <div class="col-md-6"><small class="text-muted d-block">Status</small><span
                                         class="badge bg-{{ $int['status'] === 'scheduled' ? 'success' : 'warning' }} rounded-pill small">{{ $int['status'] === 'scheduled' ? 'Confirmed' : 'Pending' }}</span>
@@ -1792,7 +1783,7 @@ new class extends Component {
         @endif
     @endif
 
-    {{-- OFFER DETAIL MODAL (with Withdraw & Decline buttons) --}}
+    {{-- OFFER DETAIL MODAL (with Withdraw, Decline, and now Accept) --}}
     @if (!is_null($this->selectedOfferId))
         @php $offer = collect($this->offers)->firstWhere('id', $this->selectedOfferId); @endphp
         @if ($offer)
@@ -1802,41 +1793,43 @@ new class extends Component {
                     <div class="modal-content shadow rounded-4 border-0">
                         <div class="modal-header border-0 p-4">
                             <div>
-                                <h5 class="fw-bold mb-1">{{ $offer['job_title'] }}</h5>
-                                <p class="text-muted small mb-0">{{ $offer['company'] }}</p>
+                                <h5 class="fw-bold mb-1">{{ $offer->jobApplication->jobPosting->designation->name }}
+                                </h5>
+
                             </div>
                             <button type="button" class="btn-close" wire:click="closeModal"></button>
                         </div>
                         <div class="modal-body p-4 pt-0">
                             <div class="row g-3">
                                 <div class="col-md-6"><small class="text-muted d-block">Position</small><strong
-                                        class="small">{{ $offer['offer_details']['position'] }}</strong></div>
+                                        class="small">{{ $offer->jobApplication->jobPosting->designation->name }}</strong>
+                                </div>
                                 <div class="col-md-6"><small class="text-muted d-block">Department</small><strong
-                                        class="small">{{ $offer['offer_details']['department'] }}</strong></div>
+                                        class="small">{{ $offer->jobApplication->jobPosting->department->name }}</strong>
+                                </div>
                                 <div class="col-md-6"><small class="text-muted d-block">Salary</small><strong
-                                        class="small text-success">{{ $offer['offer_details']['salary'] }}</strong>
+                                        class="small text-success">{{ $offer->approved_salary ?? $offer->candidate_expected_salary }}</strong>
                                 </div>
                                 <div class="col-md-6"><small class="text-muted d-block">Start Date</small><strong
-                                        class="small">{{ \Carbon\Carbon::parse($offer['offer_details']['start_date'])->format('M d, Y') }}</strong>
+                                        class="small">{{ \Carbon\Carbon::parse($offer->contract_start_date)->format('M d, Y') }}</strong>
                                 </div>
                                 <div class="col-md-6"><small class="text-muted d-block">Offer Expiry</small><strong
-                                        class="small">{{ \Carbon\Carbon::parse($offer['offer_details']['expiry_date'])->format('M d, Y') }}</strong>
+                                        class="small">{{ \Carbon\Carbon::parse($offer->expiry_date)->format('M d, Y') }}</strong>
                                 </div>
                                 <div class="col-md-6"><small class="text-muted d-block">Contact Person</small><strong
-                                        class="small">{{ $offer['offer_details']['contact_person'] }}</strong></div>
+                                        class="small">{{ $offer->contact_person }}</strong></div>
                                 <div class="col-md-6"><small class="text-muted d-block">Contact Email</small><strong
-                                        class="small">{{ $offer['offer_details']['contact_email'] }}</strong></div>
+                                        class="small">{{ $offer->contact_email }}</strong></div>
                                 <div class="col-md-6"><small class="text-muted d-block">Offer Letter</small>
-                                    @if ($offer['offer_details']['offer_letter'])
-                                        <a href="#" class="text-decoration-none small"><i
-                                            class="bi bi-file-pdf me-1"></i> Download</a>@else<span
-                                            class="text-muted small">Not available</span>
-                                    @endif
+
+                                    <a href="#" class="text-decoration-none small"><i
+                                            class="bi bi-file-pdf me-1"></i> Download</a>
+
                                 </div>
                                 <div class="col-12"><small class="text-muted d-block">Benefits</small>
-                                    <p class="small mb-0">{{ $offer['offer_details']['benefits'] }}</p>
+                                    <p class="small mb-0">{{ implode(',', $offer->benefits) }}</p>
                                 </div>
-                                @if ($offer['offer_details']['additional_notes'] ?? false)
+                                @if ($offer->additional_notes ?? false)
                                     <div class="col-12"><small class="text-muted d-block">Additional Notes</small>
                                         <p class="small mb-0">{{ $offer['offer_details']['additional_notes'] }}</p>
                                     </div>
@@ -1847,18 +1840,19 @@ new class extends Component {
                             class="modal-footer border-0 p-4 pt-0 justify-content-center justify-content-md-end gap-2">
                             <button type="button" class="btn btn-secondary rounded-pill px-4 small"
                                 wire:click="closeModal">Close</button>
-                            <button type="button" class="btn btn-success rounded-pill px-4 small"><i
-                                    class="bi bi-check-circle me-1"></i> Accept Offer</button>
+                            {{-- Accept button now triggers the accept modal --}}
+                            <button type="button" class="btn btn-success rounded-pill px-4 small"
+                                wire:click="openAccept({{ $offer['id'] }})">
+                                <i class="bi bi-check-circle me-1"></i> Accept Offer
+                            </button>
                             <button type="button" class="btn btn-outline-warning rounded-pill px-4 small"
                                 wire:click="openNegotiate({{ $offer['id'] }})">
                                 <i class="bi bi-currency-dollar me-1"></i> Negotiate
                             </button>
-                            {{-- NEW: Withdraw button --}}
                             <button type="button" class="btn btn-outline-danger rounded-pill px-4 small"
                                 wire:click="openWithdraw({{ $offer['id'] }})">
                                 <i class="bi bi-x-circle me-1"></i> Withdraw
                             </button>
-                            {{-- NEW: Decline button --}}
                             <button type="button" class="btn btn-outline-dark rounded-pill px-4 small"
                                 wire:click="openDecline({{ $offer['id'] }})">
                                 <i class="bi bi-hand-thumbs-down me-1"></i> Decline
@@ -1913,7 +1907,7 @@ new class extends Component {
         </div>
     @endif
 
-    {{-- NEW: WITHDRAW MODAL --}}
+    {{-- WITHDRAW MODAL --}}
     @if ($showWithdrawModal)
         <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5);" tabindex="-1" role="dialog"
             wire:ignore.self>
@@ -1951,7 +1945,7 @@ new class extends Component {
         </div>
     @endif
 
-    {{-- NEW: DECLINE MODAL --}}
+    {{-- DECLINE MODAL --}}
     @if ($showDeclineModal)
         <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5);" tabindex="-1" role="dialog"
             wire:ignore.self>
@@ -1988,4 +1982,40 @@ new class extends Component {
             </div>
         </div>
     @endif
+
+    {{-- ACCEPT OFFER MODAL --}}
+    @if ($showAcceptModal)
+        <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5);" tabindex="-1" role="dialog"
+            wire:ignore.self>
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content shadow rounded-4 border-0">
+                    <div class="modal-header border-0 p-4">
+                        <h5 class="fw-bold">Accept Offer</h5>
+                        <button type="button" class="btn-close" wire:click="closeAccept"></button>
+                    </div>
+                    <div class="modal-body p-4 pt-0">
+                        <p class="text-muted">Are you sure you want to accept this offer? This action is final and
+                            cannot be undone.</p>
+                    </div>
+                    <div class="modal-footer border-0 p-4 pt-0 justify-content-center justify-content-md-end gap-2">
+                        <button type="button" class="btn btn-secondary rounded-pill px-4 small"
+                            wire:click="closeAccept">Cancel</button>
+                        <button type="button" class="btn btn-success rounded-pill px-4 small"
+                            wire:click="submitAccept">
+                            <i class="bi bi-check-circle me-1"></i> Yes, Accept Offer
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 </div>
+
+{{-- JavaScript to catch the Livewire event and show a pop-up alert (Livewire v3) --}}
+<script>
+    document.addEventListener('livewire:initialized', () => {
+        Livewire.on('show-alert', (event) => {
+            alert(event.message);
+        });
+    });
+</script>

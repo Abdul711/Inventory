@@ -3,6 +3,7 @@
 use Livewire\Component;
 use App\Models\JobPosting;
 use App\Models\Department;
+use App\Models\SavedJob;
 new class extends Component {
     public string $search = '';
     public $openFaq = 1;
@@ -70,6 +71,13 @@ new class extends Component {
                 'answer' => 'Yes, you may apply for multiple openings.',
             ],
         ];
+    }
+    public function savedJob($id)
+    {
+        $user = SavedJob::firstOrCreate([
+            'job_posting_id' => $id,
+            'applicant_id' => auth('applicant')->user()->id,
+        ]);
     }
     public function applyJob($job_id)
     {

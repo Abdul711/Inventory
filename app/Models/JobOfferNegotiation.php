@@ -24,11 +24,5 @@ class JobOfferNegotiation extends Model
         );
     }
 
-    public function proposedBy()
-    {
-        return $this->belongsTo(
-            User::class,
-            'proposed_by'
-        );
-    }
+   
 }

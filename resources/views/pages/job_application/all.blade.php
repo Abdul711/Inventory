@@ -195,7 +195,7 @@ new class extends Component {
                                 @endphp
 
                                 <span class="badge {{ $statusClass }}">
-                                    {{ ucfirst($application['status']) }}
+                                    {{ str()->headline($application['status']) }}
                                 </span>
 
                             </td>

@@ -835,7 +835,7 @@
 
                         <i class="bi bi-file-earmark-person-fill"></i>
 
-                        Job Applications
+                        Applications
                     </a>
                     <a href="{{ adminRoute('jobs.index') }}" class="nav-link {{ activeRoute('jobs.index') }}">
 
@@ -865,6 +865,19 @@
 
                         Offers
                     </a>
+                    <a href="{{ adminRoute('jobs.screenings.index') }}"
+                        class="nav-link {{ activeRoute('jobs.screenings.index') }}">
+
+                        <i class="bi bi-clipboard-check-fill"></i>
+
+                        Screening
+                    </a>
+                    <a href="{{ adminRoute('jobs.offer-negotiations.index') }}"
+                        class="nav-link {{ activeRoute('jobs.offer-negotiations.index') }}">
+                        <i class="bi bi-currency-dollar"></i>
+                        Negotiations
+                    </a>
+
                 </div>
             </li>
 

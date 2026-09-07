@@ -39,7 +39,9 @@ public function works()
         'applicant_id'
     );
 }
-
+public function offers(){
+    return $this->hasMany(JobOffer::class, 'applicant_id');
+}
 public function documents()
 {
     return $this->hasMany(
@@ -47,6 +49,11 @@ public function documents()
         'applicant_id'
     );
 }
-
+public function savedJobs(){
+     return $this->hasMany(
+    SavedJob::class,
+        'applicant_id'
+    );
+}
 
 }

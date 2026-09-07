@@ -6,7 +6,7 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\GoogleDrive;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\ApplicantController;
-
+use App\Http\Controllers\InterviewEntryPassController;
 
 Auth::routes();
 require __DIR__.'/applicant.php';
@@ -27,6 +27,15 @@ Route::livewire("/cart", "pages::frontend.cart")->name("cart");
 Route::livewire('/product/{value}', 'pages::frontend.products.product-detail')
     ->name('product.detail');
 Route::get("uploadImage",[GoogleDrive::class,"uploadImage"]);
+
+
+Route::get(
+    '/interviews/{interview}/entry-pass',
+    InterviewEntryPassController::class
+)->name('interviews.entry-pass');
+
+  Route::get('offer-letter/download/{id}',[ApplicantController::class,"downloadletter"])
+     ->name("jobs.offers.letters.download");
 /*
 |--------------------------------------------------------------------------
 | Admin Routes
@@ -34,7 +43,7 @@ Route::get("uploadImage",[GoogleDrive::class,"uploadImage"]);
 */
 
 
-Route::middleware('auth')->group(function () {
+Route::middleware('auth:admin,employee,deliveryboy,supplier')->group(function () {
    Route::livewire("dashboard", "pages::dashboard")->name('dashboard');
 require __DIR__.'/finance.php';
 require __DIR__.'/account.php';

@@ -46,6 +46,24 @@ return [
         'driver' => 'session',
         'provider' => 'users',
     ],
+       'supplier' => [
+        'driver' => 'session',
+        'provider' => 'users',
+    ],
+       'admin' => [
+        'driver' => 'session',
+        'provider' => 'users',
+    ],
+       'employee' => [
+        'driver' => 'session',
+        'provider' => 'users',
+    ],
+
+    'deliveryboy' => [
+        'driver' => 'session',
+        'provider' => 'users',
+    ],
+
           'applicant' => [
         'driver' => 'session',
         'provider' => 'applicants',

@@ -7,7 +7,7 @@ use App\Models\Applicant;
 use App\Models\ApplicantWork;
 use App\Models\ApplicantEducation;
 use App\Models\ApplicantDocument;
-
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
 class ApplicantController extends Controller
 {
@@ -98,4 +98,14 @@ $folder=public_path('storage/candidate');
          }
 
     }
+public function downloadletter($id){
+       $jobOffer=\App\Models\JobOffer::find($id);
+$companyLogo=public_path('images/logo.png');
+$companyEmail="support@example.com";
+$companyPhone=3001234567;
+  $companyAddress="Korangi Crossing";
+      $pdf = Pdf::loadView('pdf.jobs.offer_letter', compact('jobOffer','companyEmail','companyLogo'));
+      return $pdf->download("Offer Letter".$jobOffer->offer_number.time().".pdf");
+}
+    
 }
