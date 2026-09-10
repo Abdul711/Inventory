@@ -126,7 +126,7 @@ class GenerateCandidateDocuments implements ShouldQueue
                     ]);
 
                     $fileName = 'education-' . str()->slug($application->applicant->full_name) . $degree .time(). '.pdf';
-                    $path = 'documents/' . str()->slug($application->applicant->full_name) .'/' ."applicationno".$application->id .'/' . $fileName;
+                    $path = 'documents/' . str()->slug($application->applicant->full_name) .'/'  . $fileName;
                     Storage::disk('public')->put($path, $pdf->output());
                     $fullPath = Storage::disk('public')->path($path);
                     $size = filesize($fullPath);
@@ -171,7 +171,7 @@ class GenerateCandidateDocuments implements ShouldQueue
                         'applicannt_photo' =>$application->applicant->photo,
                     ]);
                     $letter_name = 'experience_letter-' . str()->slug( $application->applicant->full_name) . time() . $candidate_exp['company'] . '.pdf';
-                    $pathexperience = 'documents/' . str()->slug($application->applicant->full_name) .'/'."applicationno".$application->id . '/' . $letter_name;
+                    $pathexperience = 'documents/' . str()->slug($application->applicant->full_name) .'/' . $letter_name;
                     Storage::disk('public')->put($pathexperience, $pdfexperienceletter->output());
                     $fullPath = Storage::disk('public')->path($pathexperience);
                     $mimeType = mime_content_type($fullPath);
@@ -216,7 +216,7 @@ class GenerateCandidateDocuments implements ShouldQueue
                 ])->render();
 
 
-  $relativePath = 'documents/' . str()->slug($application->applicant->full_name) ."/applicationno".$application->id . "/candidate-cnic-{$name}.png";
+  $relativePath = 'documents/' . str()->slug($application->applicant->full_name) . "/candidate-cnic-{$name}.png";
 
       Browsershot::html($html)
                     ->windowSize(1000, 1000)
@@ -266,7 +266,7 @@ class GenerateCandidateDocuments implements ShouldQueue
                 $pdf = Pdf::loadView('pdf.resume', $data)->setPaper('a4', 'portrait');
 
                 $fileName = 'resume-' . str()->slug($application->applicant->full_name) . time() . '.pdf';
-                $path = 'documents/' . str()->slug($application->applicant->full_name) . '/'."applicationno".$application->id . '/' . $fileName;
+                $path = 'documents/' . str()->slug($application->applicant->full_name) . '/'. $fileName;
 
                 Storage::disk('public')->put($path, $pdf->output());
 

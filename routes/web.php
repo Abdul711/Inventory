@@ -32,7 +32,7 @@ Route::get("uploadImage",[GoogleDrive::class,"uploadImage"]);
 Route::get(
     '/interviews/{interview}/entry-pass',
     InterviewEntryPassController::class
-)->name('interviews.entry-pass');
+)->name('jobs.interviews.entry-pass');
 
   Route::get('offer-letter/download/{id}',[ApplicantController::class,"downloadletter"])
      ->name("jobs.offers.letters.download");

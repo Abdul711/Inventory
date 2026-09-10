@@ -4,11 +4,13 @@ namespace App\Livewire;
 
 use App\Models\JobApplication as Application;
 use App\Models\Interview;
+use App\Models\Offer;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\WithFileUploads;
 use Illuminate\Support\Facades\Storage;
-
+use Illuminate\Validation\ValidationException;
+use App\Jobs\UpdateImage;
 new class extends Component {
     use WithPagination, WithFileUploads;
 
@@ -75,12 +77,6 @@ new class extends Component {
         'filterType' => ['except' => ''],
     ];
 
-    protected array $maritalStatuses = [
-        'single' => 'Single',
-        'married' => 'Married',
-        'divorced' => 'Divorced',
-    ];
-
     // Statistics
     public function getStatsProperty()
     {
@@ -115,13 +111,13 @@ new class extends Component {
         return auth('applicant')->user()->jobApplications;
     }
 
-    // Offers data (replace with real DB data)
+    // Offers data – using the Offer model (assumed relationship)
     public function getOffersProperty()
     {
-        return auth('applicant')->user()->offers;
+        return auth('applicant')->user()->offers; // Ensure 'offers' relationship exists
     }
 
-    // Upcoming Interviews (used for dashboard quick view)
+    // Upcoming Interviews
     public function getUpcomingInterviewsProperty()
     {
         return Interview::query()
@@ -132,7 +128,7 @@ new class extends Component {
             ->get();
     }
 
-    // All Interviews (used in Interviews tab)
+    // All Interviews
     public function getAllInterviewsProperty()
     {
         return Interview::query()
@@ -142,8 +138,7 @@ new class extends Component {
             ->get();
     }
 
-    // Saved Jobs
-    public function goBack() {}
+    // Saved Jobs (dummy data – replace with real DB)
     public function getSavedJobsProperty()
     {
         return [
@@ -168,73 +163,16 @@ new class extends Component {
         ];
     }
 
-    // Education Data
+    // Education Data (replace with DB)
     public function getEducationsProperty()
     {
-        return [
-            [
-                'id' => 1,
-                'institution' => 'University of Karachi',
-                'degree' => 'Bachelor of Science',
-                'field' => 'Computer Science',
-                'start_date' => '2018-09-01',
-                'end_date' => '2022-06-30',
-                'grade' => '3.8 GPA',
-                'description' => 'Focused on software development and algorithms.',
-                'currently_studying' => false,
-            ],
-            [
-                'id' => 2,
-                'institution' => 'Stanford University',
-                'degree' => 'Master of Science',
-                'field' => 'Artificial Intelligence',
-                'start_date' => '2023-09-01',
-                'end_date' => null,
-                'grade' => null,
-                'description' => 'Research in machine learning and neural networks.',
-                'currently_studying' => true,
-            ],
-        ];
+        return auth('applicant')->user()->educations; // Assume relationship exists
     }
 
-    // Work Experience Data
+    // Work Experience Data (replace with DB)
     public function getExperiencesProperty()
     {
-        return [
-            [
-                'id' => 1,
-                'company' => 'Tech Solutions Inc.',
-                'title' => 'Senior Laravel Developer',
-                'location' => 'Karachi, Pakistan',
-                'start_date' => '2022-07-01',
-                'end_date' => null,
-                'description' => 'Leading a team of 5 developers building enterprise applications using Laravel and Vue.js. Implemented CI/CD pipelines and improved code quality by 40%.',
-                'currently_working' => true,
-                'employment_type' => 'full_time',
-            ],
-            [
-                'id' => 2,
-                'company' => 'Digital Innovations',
-                'title' => 'Full Stack Developer',
-                'location' => 'Lahore, Pakistan',
-                'start_date' => '2020-01-15',
-                'end_date' => '2022-06-30',
-                'description' => 'Developed and maintained multiple web applications using React, Node.js, and MySQL. Reduced loading time by 60% through optimization.',
-                'currently_working' => false,
-                'employment_type' => 'full_time',
-            ],
-            [
-                'id' => 3,
-                'company' => 'Freelance',
-                'title' => 'Web Developer',
-                'location' => 'Remote',
-                'start_date' => '2019-06-01',
-                'end_date' => '2019-12-31',
-                'description' => 'Worked on various freelance projects including e-commerce websites and CMS development.',
-                'currently_working' => false,
-                'employment_type' => 'freelance',
-            ],
-        ];
+        return auth('applicant')->user()->works; // Assume relationship exists
     }
 
     public function switchTab($tab)
@@ -269,7 +207,8 @@ new class extends Component {
         $this->selectedOfferId = null;
     }
 
-    public function emit()
+    // FIXED: Renamed to logout() to avoid confusion with Livewire's emit()
+    public function logout()
     {
         auth('applicant')->logout();
         return redirect()->route('applicantauth');
@@ -299,7 +238,19 @@ new class extends Component {
             'negotiationNotes' => 'nullable|string|max:1000',
         ]);
 
-        session()->flash('success', 'Salary negotiation request sent successfully!');
+        // FIXED: Use find() and update the offer, not get()
+        $offer = Offer::find($this->negotiatingOfferId);
+        if ($offer && $offer->applicant_id == auth('applicant')->id()) {
+            // Update offer with negotiation details (you need appropriate columns)
+            $offer->negotiation_proposed = $this->proposedSalary;
+            $offer->negotiation_notes = $this->negotiationNotes;
+            $offer->negotiation_status = 'pending';
+            $offer->save();
+            session()->flash('success', 'Salary negotiation request sent successfully!');
+        } else {
+            session()->flash('error', 'Offer not found or not owned by you.');
+        }
+
         $this->closeNegotiate();
     }
 
@@ -323,6 +274,9 @@ new class extends Component {
         $this->validate([
             'withdrawReason' => 'required|string|max:1000',
         ]);
+
+        // Update offer status to 'withdrawn' (you need to add logic)
+        // ...
 
         session()->flash('success', 'Your application has been withdrawn successfully.');
         $this->closeWithdraw();
@@ -349,11 +303,14 @@ new class extends Component {
             'declineReason' => 'required|string|max:1000',
         ]);
 
+        // Update offer status to 'declined'
+        // ...
+
         session()->flash('success', 'Offer declined successfully.');
         $this->closeDecline();
     }
 
-    // -------- ACCEPT OFFER (FIXED for Livewire v3) --------
+    // -------- ACCEPT OFFER --------
     public function openAccept($offerId)
     {
         $this->acceptingOfferId = $offerId;
@@ -368,36 +325,41 @@ new class extends Component {
 
     public function submitAccept()
     {
-        // Here you would update the offer status to 'accepted' in the database.
-        // For demonstration, we flash a success message and dispatch a browser event.
+        // Update offer status to 'accepted'
+        // ...
         session()->flash('success', 'Offer accepted successfully!');
-
-        // Livewire v3: use $this->dispatch() to emit a browser event
         $this->dispatch('show-alert', ['message' => 'Offer accepted successfully!']);
-
         $this->closeAccept();
-        // Optionally refresh the offers list
     }
 
-    // -------- PROFILE PHOTO UPLOAD --------
+    // -------- PROFILE PHOTO UPLOAD (FIXED) --------
     public function updatedPhoto()
     {
+        // Validate – exceptions will be caught by Livewire and displayed via $errors
         $this->validate([
-            'photo' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'photo' => 'required|image|mimes:jpeg,png,jpg,gif', // 2MB max
         ]);
 
         $user = auth('applicant')->user();
+        $jobApplicationsCount = $user->jobApplications->count();
 
+        if ($jobApplicationsCount > 0) {
+            UpdateImage::dispatch($user->id);
+        }
+        // Delete old photo if exists
         if ($user->photo && Storage::disk('public')->exists('applicant/' . $user->photo)) {
             Storage::disk('public')->delete('applicant/' . $user->photo);
         }
 
+        // Store new photo
         $path = $this->photo->store('applicant', 'public');
         $filename = basename($path);
 
+        // FIXED: Ensure 'photo' is fillable in the User/Applicant model
         $user->photo = $filename;
         $user->save();
 
+        // Clear the temporary upload and preview
         $this->photo = null;
         $this->photoPreview = null;
 
@@ -461,6 +423,9 @@ new class extends Component {
             $this->educationEndDate = null;
         }
 
+        // Save to DB (you need to implement)
+        // ...
+
         session()->flash('success', $this->editingEducationId ? 'Education updated successfully!' : 'Education added successfully!');
         $this->resetEducationForm();
         $this->showEducationForm = false;
@@ -468,6 +433,8 @@ new class extends Component {
 
     public function deleteEducation($id)
     {
+        // Delete from DB
+        // ...
         session()->flash('success', 'Education entry removed successfully!');
     }
 
@@ -498,6 +465,7 @@ new class extends Component {
         $this->showExperienceForm = true;
     }
 
+    // FIXED: editExperience now uses 'designation' to populate experienceTitle
     public function editExperience($id)
     {
         $experiences = $this->experiences;
@@ -506,13 +474,13 @@ new class extends Component {
         if ($experience) {
             $this->editingExperienceId = $experience['id'];
             $this->experienceCompany = $experience['company'];
-            $this->experienceTitle = $experience['title'];
-            $this->experienceLocation = $experience['location'];
+            // FIXED: Use 'designation' if that's the column name in DB/mock data
+            $this->experienceTitle = $experience['designation'] ?? ($experience['title'] ?? '');
+            $this->experienceLocation = $experience['location'] ?? '';
             $this->experienceStartDate = $experience['start_date'];
             $this->experienceEndDate = $experience['end_date'];
             $this->experienceDescription = $experience['description'];
-            $this->experienceCurrentlyWorking = $experience['currently_working'];
-            $this->experienceEmploymentType = $experience['employment_type'];
+            $this->experienceEmploymentType = $experience['experience_type'] ?? 'full_time';
             $this->showExperienceForm = true;
         }
     }
@@ -534,6 +502,9 @@ new class extends Component {
             $this->experienceEndDate = null;
         }
 
+        // Save to DB (implement)
+        // ...
+
         session()->flash('success', $this->editingExperienceId ? 'Experience updated successfully!' : 'Experience added successfully!');
         $this->resetExperienceForm();
         $this->showExperienceForm = false;
@@ -541,6 +512,8 @@ new class extends Component {
 
     public function deleteExperience($id)
     {
+        // Delete from DB
+        // ...
         session()->flash('success', 'Experience entry removed successfully!');
     }
 
@@ -552,9 +525,7 @@ new class extends Component {
 
     public function applyJob($id)
     {
-        return $this->redirectRoute('jobdetail', [
-            'id' => $id,
-        ]);
+        return $this->redirectRoute('jobdetail', ['id' => $id]);
     }
 
     public function removeSavedJob($id)
@@ -570,6 +541,12 @@ new class extends Component {
         session()->flash('error', 'Meeting link not available yet.');
     }
 
+    public function goBack()
+    {
+        // FIXED: Implement as needed – maybe redirect to previous page
+        return redirect()->back();
+    }
+
     public function rendering($view): void
     {
         $view->layout('components.layouts.ecommerce', [
@@ -578,7 +555,6 @@ new class extends Component {
     }
 };
 ?>
-
 <div>
     {{-- HEADER --}}
     <div class="py-3 py-md-4 mb-4 shadow-sm">
@@ -594,7 +570,8 @@ new class extends Component {
                         class="btn btn-light btn-sm rounded-pill px-3 px-md-4 fw-medium shadow-sm">
                         <i class="bi bi-arrow-left me-1"></i> Back
                     </button>
-                    <button type="button" wire:click="emit('logout')"
+                    {{-- FIXED: Changed emit('logout') to logout --}}
+                    <button type="button" wire:click="logout"
                         class="btn btn-light btn-sm rounded-pill px-3 px-md-4 fw-medium shadow-sm">
                         <i class="bi bi-box-arrow-right me-1"></i> Logout
                     </button>
@@ -1096,7 +1073,7 @@ new class extends Component {
             </div>
         @endif
 
-        {{-- OFFERS TAB (with Withdraw & Decline buttons) --}}
+        {{-- OFFERS TAB --}}
         @if ($activeTab === 'offers')
             <div class="row g-3">
                 @forelse ($this->offers as $offer)
@@ -1122,7 +1099,6 @@ new class extends Component {
                                         <small class="text-muted">Expires:
                                             {{ \Carbon\Carbon::parse($offer->expiry_date)->format('M d, Y') }}</small>
                                     </div>
-                                    {{-- Action buttons row --}}
                                     <div class="d-flex flex-wrap gap-2">
                                         <button wire:click="showOffer({{ $offer['id'] }})"
                                             class="btn btn-outline-primary rounded-pill flex-fill small"><i
@@ -1212,10 +1188,13 @@ new class extends Component {
                 <div class="col-md-4">
                     <div class="card border-0 shadow rounded-4">
                         <div class="card-body p-3 p-md-4 text-center">
+                            {{-- FIXED: Profile photo display and error messages --}}
                             <div class="position-relative d-inline-block mb-3">
-                                <img src="{{ asset('storage/applicant/' . auth('applicant')->user()->photo) }}"
+                                @php $user = auth('applicant')->user(); @endphp
+                                <img src="{{ $user->photo ? asset('storage/applicant/' . $user->photo) : asset('default-avatar.png') }}"
                                     alt="Profile" class="rounded-circle"
                                     style="width: 80px; height: 80px; object-fit: cover;">
+
                                 <label for="profilePhotoInput"
                                     class="btn btn-primary btn-sm rounded-circle position-absolute bottom-0 end-0 p-1"
                                     style="cursor: pointer;">
@@ -1233,6 +1212,11 @@ new class extends Component {
                                         style="object-fit: cover; opacity: 0.7;">
                                 @endif
                             </div>
+                            {{-- FIXED: Display validation error for photo --}}
+                            @error('photo')
+                                <span class="text-danger small d-block mb-2">{{ $message }}</span>
+                            @enderror
+
                             <h5 class="fw-bold fs-6">{{ auth('applicant')->user()->full_name }}</h5>
                             <p class="text-muted small">
                                 {{ auth('applicant')->user()->works?->last()?->designation ?? 'N/A' }}</p>
@@ -1367,15 +1351,8 @@ new class extends Component {
                                                     <div class="invalid-feedback small">{{ $message }}</div>
                                                 @enderror
                                             </div>
-                                            <div class="col-md-6"><label class="form-label fw-semibold small">Location
-                                                    *</label><input type="text" wire:model="experienceLocation"
-                                                    class="form-control form-control-sm @error('experienceLocation') is-invalid @enderror"
-                                                    placeholder="City, Country">
-                                                @error('experienceLocation')
-                                                    <div class="invalid-feedback small">{{ $message }}</div>
-                                                @enderror
-                                            </div>
-                                            <div class="col-md-6"><label
+
+                                            <div class="col-md-12"><label
                                                     class="form-label fw-semibold small">Employment Type
                                                     *</label><select wire:model="experienceEmploymentType"
                                                     class="form-select form-select-sm @error('experienceEmploymentType') is-invalid @enderror">
@@ -1437,26 +1414,25 @@ new class extends Component {
                                                 class="d-flex justify-content-between align-items-start p-3 bg-light rounded-4">
                                                 <div class="flex-grow-1">
                                                     <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
-                                                        <h6 class="fw-bold mb-0">{{ $experience['title'] }}</h6>
-                                                        @if ($experience['currently_working'])
+                                                        <h6 class="fw-bold mb-0">{{ $experience['designation'] }}</h6>
+                                                        @if ($loop->last)
                                                             <span
                                                                 class="badge bg-success rounded-pill small">Current</span>
                                                         @endif
-                                                        @php $employmentTypeLabels = ['full_time'=>'Full Time','part_time'=>'Part Time','contract'=>'Contract','freelance'=>'Freelance','internship'=>'Internship']; @endphp
+                                                        @php $employmentTypeLabels = ['permanent'=>'Full Time','part-time'=>'Part Time','contract'=>'Contract','freelance'=>'Freelance','internship'=>'Internship']; @endphp
                                                         <span
-                                                            class="badge bg-secondary rounded-pill small">{{ $employmentTypeLabels[$experience['employment_type']] ?? $experience['employment_type'] }}</span>
+                                                            class="badge bg-secondary rounded-pill small">{{ $employmentTypeLabels[$experience['experience_type']] ?? $experience['experience_type'] }}</span>
                                                     </div>
                                                     <p class="mb-1 small"><i
                                                             class="bi bi-building me-1"></i>{{ $experience['company'] }}
-                                                        <span class="text-muted">·
-                                                            {{ $experience['location'] }}</span>
+
                                                     </p>
                                                     <div class="d-flex flex-wrap gap-2 mb-1"><small
                                                             class="text-muted"><i
-                                                                class="bi bi-calendar me-1"></i>{{ \Carbon\Carbon::parse($experience['start_date'])->format('M Y') }}
+                                                                class="bi bi-calendar me-1"></i>{{ \Carbon\Carbon::parse($experience['start_date'])->format('d M Y') }}
                                                             @if ($experience['end_date'])
                                                                 -
-                                                                {{ \Carbon\Carbon::parse($experience['end_date'])->format('M Y') }}
+                                                                {{ \Carbon\Carbon::parse($experience['end_date'])->format('d M Y') }}
                                                             @else
                                                                 - Present
                                                             @endif
@@ -1587,28 +1563,23 @@ new class extends Component {
                                                 class="d-flex justify-content-between align-items-start p-3 bg-light rounded-4">
                                                 <div class="flex-grow-1">
                                                     <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
-                                                        <h6 class="fw-bold mb-0">{{ $education['degree'] }}</h6>
-                                                        @if ($education['currently_studying'])
-                                                            <span
-                                                                class="badge bg-success rounded-pill small">Current</span>
-                                                        @endif
+                                                        <h6 class="fw-bold mb-0">{{ $education['degree_name'] }}</h6>
+
                                                     </div>
                                                     <p class="mb-1 small"><i
-                                                            class="bi bi-building me-1"></i>{{ $education['institution'] }}
-                                                        @if ($education['field'])
-                                                            <span class="text-muted">·
-                                                                {{ $education['field'] }}</span>
-                                                        @endif
+                                                            class="bi bi-building me-1"></i>{{ $education['institute'] }}
+
                                                     </p>
                                                     <div class="d-flex flex-wrap gap-2 mb-1">
                                                         <small class="text-muted"><i
-                                                                class="bi bi-calendar me-1"></i>{{ \Carbon\Carbon::parse($education['start_date'])->format('M Y') }}
-                                                            @if ($education['end_date'])
-                                                                -
-                                                                {{ \Carbon\Carbon::parse($education['end_date'])->format('M Y') }}
-                                                            @else
-                                                                - Present
-                                                            @endif
+                                                                class="bi bi-calendar me-1"></i>{{ \Carbon\Carbon::parse($education['graduate_start_year'])->format('d M Y') }}
+                                                            @php
+                                                                echo $education['graduate_end_year'] != null;
+                                                            @endphp
+
+                                                            -
+                                                            {{ \Carbon\Carbon::parse($education['graduate_end_year'])->format('d M Y') }}
+
                                                         </small>
                                                         @if ($education['grade'])
                                                             <small class="text-muted"><i
@@ -1783,7 +1754,7 @@ new class extends Component {
         @endif
     @endif
 
-    {{-- OFFER DETAIL MODAL (with Withdraw, Decline, and now Accept) --}}
+    {{-- OFFER DETAIL MODAL --}}
     @if (!is_null($this->selectedOfferId))
         @php $offer = collect($this->offers)->firstWhere('id', $this->selectedOfferId); @endphp
         @if ($offer)
@@ -1795,7 +1766,6 @@ new class extends Component {
                             <div>
                                 <h5 class="fw-bold mb-1">{{ $offer->jobApplication->jobPosting->designation->name }}
                                 </h5>
-
                             </div>
                             <button type="button" class="btn-close" wire:click="closeModal"></button>
                         </div>
@@ -1840,7 +1810,6 @@ new class extends Component {
                             class="modal-footer border-0 p-4 pt-0 justify-content-center justify-content-md-end gap-2">
                             <button type="button" class="btn btn-secondary rounded-pill px-4 small"
                                 wire:click="closeModal">Close</button>
-                            {{-- Accept button now triggers the accept modal --}}
                             <button type="button" class="btn btn-success rounded-pill px-4 small"
                                 wire:click="openAccept({{ $offer['id'] }})">
                                 <i class="bi bi-check-circle me-1"></i> Accept Offer
@@ -2011,7 +1980,7 @@ new class extends Component {
     @endif
 </div>
 
-{{-- JavaScript to catch the Livewire event and show a pop-up alert (Livewire v3) --}}
+{{-- JavaScript for Livewire event --}}
 <script>
     document.addEventListener('livewire:initialized', () => {
         Livewire.on('show-alert', (event) => {

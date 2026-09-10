@@ -325,22 +325,35 @@ new class extends Component {
             <div class="row">
 
                 {{-- Photo --}}
+                {{-- Photo --}}
                 <div class="col-md-3 text-center mb-4">
 
-                    @if (!empty($application['photo']))
-                        <img src="{{ asset('storage/applicant/' . $application['photo']) }}"
-                            alt="{{ $application['full_name'] }}" class="img-thumbnail rounded-4"
-                            style="
-                                width: 180px;
-                                height: 200px;
-                                object-fit: cover;
-                            ">
+                    @php
+                        $photo = $application['photo'] ?? null;
+                        $photoUrl = null;
+
+                        if (!empty($photo)) {
+                            if (\Illuminate\Support\Str::startsWith($photo, ['http://', 'https://'])) {
+                                $photoUrl = $photo;
+                            } elseif (\Illuminate\Support\Str::startsWith($photo, 'storage/')) {
+                                $photoUrl = asset($photo);
+                            } elseif (\Illuminate\Support\Str::startsWith($photo, 'applicant/')) {
+                                $photoUrl = asset('storage/' . $photo);
+                            } else {
+                                $photoUrl = asset('storage/applicant/' . $photo);
+                            }
+                        }
+                    @endphp
+
+                    @if ($photoUrl)
+                        <img src="{{ $photoUrl }}" alt="{{ $application['full_name'] }}"
+                            class="img-thumbnail rounded-4" role="button" data-bs-toggle="modal"
+                            data-bs-target="#applicantPhotoModal"
+                            style="width:180px; height:200px; object-fit:cover; cursor:pointer;">
                     @else
                         <div class="bg-light rounded-4 d-flex align-items-center justify-content-center mx-auto"
-                            style="
-                                width:180px;
-                                height:200px;
-                            ">
+                            style="width:180px; height:200px;">
+
                             <i class="bi bi-person fs-1 text-muted"></i>
                         </div>
                     @endif
@@ -1236,7 +1249,33 @@ new class extends Component {
 
         </div>
     @endif
+    {{-- Applicant Photo Preview Modal --}}
+    @if ($photoUrl)
+        <div class="modal fade" id="applicantPhotoModal" tabindex="-1" aria-labelledby="applicantPhotoModalLabel"
+            aria-hidden="true">
 
+            <div class="modal-dialog modal-dialog-centered modal-lg">
+                <div class="modal-content border-0 shadow">
+
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="applicantPhotoModalLabel">
+                            {{ $application['full_name'] }}
+                        </h5>
+
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+                        </button>
+                    </div>
+
+                    <div class="modal-body text-center p-3">
+                        <img src="{{ $photoUrl }}" alt="{{ $application['full_name'] }}"
+                            class="img-fluid rounded-3" style="max-height:75vh; object-fit:contain;">
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    @endif
 
 
 
