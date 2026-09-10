@@ -11,6 +11,7 @@ use Livewire\WithFileUploads;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use App\Jobs\UpdateImage;
+use Illuminate\Validation\Rule;
 new class extends Component {
     use WithPagination, WithFileUploads;
 
@@ -52,7 +53,7 @@ new class extends Component {
     public $editingEducationId = null;
     public $educationInstitution = '';
     public $educationDegree = '';
-    public $educationField = '';
+    public $educationType = '';
     public $educationStartDate = '';
     public $educationEndDate = '';
     public $educationGrade = '';
@@ -85,16 +86,14 @@ new class extends Component {
             'pending' => Application::where('applicant_id', auth('applicant')->id())
                 ->where('status', 'pending')
                 ->count(),
-            'interview' => Application::where('applicant_id', auth('applicant')->id())
-                ->where('status', 'interview')
-                ->count(),
+            'interview' => auth('applicant')->user()->interviews->count(),
             'rejected' => Application::where('applicant_id', auth('applicant')->id())
                 ->where('status', 'rejected')
                 ->count(),
             'offered' => Application::where('applicant_id', auth('applicant')->id())
-                ->where('status', 'offered')
+                ->where('status', 'job_offered')
                 ->count(),
-            'saved_jobs' => 10,
+            'saved_jobs' => 18,
             'upcoming_interviews' => Interview::where('applicant_id', auth('applicant')->id())
                 ->where('scheduled_at', '>', now())
                 ->count(),
@@ -120,12 +119,7 @@ new class extends Component {
     // Upcoming Interviews
     public function getUpcomingInterviewsProperty()
     {
-        return Interview::query()
-            ->with(['jobApplication.jobPosting'])
-            ->where('applicant_id', auth('applicant')->id())
-            ->where('scheduled_at', '>', now())
-            ->orderBy('scheduled_at')
-            ->get();
+        return $this->allInterviews->where('scheduled_at', '>', now())->sortBy('scheduled_at')->values();
     }
 
     // All Interviews
@@ -371,7 +365,7 @@ new class extends Component {
     {
         $this->educationInstitution = '';
         $this->educationDegree = '';
-        $this->educationField = '';
+        $this->educationType = '';
         $this->educationStartDate = '';
         $this->educationEndDate = '';
         $this->educationGrade = '';
@@ -394,11 +388,11 @@ new class extends Component {
 
         if ($education) {
             $this->editingEducationId = $education['id'];
-            $this->educationInstitution = $education['institution'];
-            $this->educationDegree = $education['degree'];
-            $this->educationField = $education['field'];
-            $this->educationStartDate = $education['start_date'];
-            $this->educationEndDate = $education['end_date'];
+            $this->educationInstitution = $education['institute'];
+            $this->educationDegree = $education['degree_name'];
+            $this->educationType = $education['institute_type'];
+            $this->educationStartDate = date('Y-m-d', strtotime($education['graduate_start_year']));
+            $this->educationEndDate = date('Y-m-d', strtotime($education['graduate_end_year']));
             $this->educationGrade = $education['grade'];
             $this->educationDescription = $education['description'];
             $this->educationCurrentlyStudying = $education['currently_studying'];
@@ -411,10 +405,10 @@ new class extends Component {
         $this->validate([
             'educationInstitution' => 'required|string|max:255',
             'educationDegree' => 'required|string|max:255',
-            'educationField' => 'required|string|max:255',
+            'educationType' => ['required', Rule::in(['school', 'college', 'university'])],
             'educationStartDate' => 'required|date',
             'educationEndDate' => 'nullable|date|after:educationStartDate',
-            'educationGrade' => 'nullable|string|max:50',
+            'educationGrade' => ['required', 'numeric', Rule::when(in_array($this->educationType, ['school', 'college']), ['integer', 'between:0,100']), Rule::when($this->educationType === 'university', ['between:1,4'])],
             'educationDescription' => 'nullable|string',
             'educationCurrentlyStudying' => 'boolean',
         ]);
@@ -1089,8 +1083,8 @@ new class extends Component {
                                 <div class="mb-2">
                                     <span
                                         class="badge bg-light text-dark small">{{ $offer->jobApplication->jobPosting->employment_type }}</span>
-                                    <span class="badge bg-info text-dark small ms-1"><i
-                                            class="bi bi-currency-rupee me-1"></i>{{ $offer->approved_salary ?? $offer->candidate_expected_salary }}</span>
+                                    <span
+                                        class="badge bg-info text-dark small ms-1">Rs{{ $offer->approved_salary ?? $offer->candidate_expected_salary }}</span>
                                 </div>
                                 <div class="mt-auto">
                                     <div class="d-flex flex-wrap justify-content-between align-items-center mb-2">
@@ -1503,11 +1497,20 @@ new class extends Component {
                                                     <div class="invalid-feedback small">{{ $message }}</div>
                                                 @enderror
                                             </div>
-                                            <div class="col-md-6"><label class="form-label fw-semibold small">Field of
-                                                    Study *</label><input type="text" wire:model="educationField"
-                                                    class="form-control form-control-sm @error('educationField') is-invalid @enderror"
-                                                    placeholder="e.g. Computer Science">
-                                                @error('educationField')
+                                            <div class="col-md-6"><label
+                                                    class="form-label fw-semibold small">Institute
+                                                    Type *</label>
+
+                                                <select wire:model="educationType"
+                                                    class="form-select form-select-sm @error('educationType') is-invalid @enderror">
+
+                                                    <option value="">Select Institute Type</option>
+                                                    <option value="school">School</option>
+                                                    <option value="college">College</option>
+                                                    <option value="university">University</option>
+
+                                                </select>
+                                                @error('educationType')
                                                     <div class="invalid-feedback small">{{ $message }}</div>
                                                 @enderror
                                             </div>
@@ -1574,7 +1577,10 @@ new class extends Component {
                                                         <small class="text-muted"><i
                                                                 class="bi bi-calendar me-1"></i>{{ \Carbon\Carbon::parse($education['graduate_start_year'])->format('d M Y') }}
                                                             @php
-                                                                echo $education['graduate_end_year'] != null;
+
+                                                                if ($education['graduate_end_year'] != null) {
+                                                                    $conditioneducation = 0;
+                                                                }
                                                             @endphp
 
                                                             -
@@ -1792,8 +1798,9 @@ new class extends Component {
                                         class="small">{{ $offer->contact_email }}</strong></div>
                                 <div class="col-md-6"><small class="text-muted d-block">Offer Letter</small>
 
-                                    <a href="#" class="text-decoration-none small"><i
-                                            class="bi bi-file-pdf me-1"></i> Download</a>
+                                    <a href="{{ route('jobs.offers.letters.download', $offer['id']) }}"
+                                        class="text-decoration-none small"><i class="bi bi-file-pdf me-1"></i>
+                                        Download</a>
 
                                 </div>
                                 <div class="col-12"><small class="text-muted d-block">Benefits</small>
