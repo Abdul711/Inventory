@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Models\JobApplication as Application;
 use App\Models\Interview;
 use App\Models\Offer;
+use App\Models\ApplicantDocument;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\WithFileUploads;
@@ -12,6 +13,8 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use App\Jobs\UpdateImage;
 use Illuminate\Validation\Rule;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Hash;
 new class extends Component {
     use WithPagination, WithFileUploads;
 
@@ -24,10 +27,14 @@ new class extends Component {
     public $selectedApplicationId = null;
     public $selectedInterviewId = null;
     public $selectedOfferId = null;
+    public $selectedDocumentId = null;
 
     // Profile photo upload
     public $photo = null;
     public $photoPreview = null;
+
+    // Documents
+    public $documents;
 
     // Salary Negotiation
     public $showNegotiateModal = false;
@@ -72,29 +79,62 @@ new class extends Component {
     public $experienceEndDate = '';
     public $experienceDescription = '';
     public $experienceCurrentlyWorking = false;
-    public $experienceEmploymentType = 'full_time';
+    public $experienceEmploymentType = 'permanent';
 
+    //Applicant Information Variables
+    public $applicantName;
+    public $applicantDesignation;
+    public $applicantEmail;
+    public $applicantFatherName;
+    public $applicantGender;
+    public $applicantMaritalStatus;
+    public $applicantPhone;
+    public $applicantCNIC;
+    public $applicantDateOfBirth;
+    public $applicantLinkedIn;
+    public $applicantPassword;
+    public $applicantAddress;
+    public $previousSalary;
     protected $queryString = [
         'search' => ['except' => ''],
         'filterStatus' => ['except' => ''],
         'filterType' => ['except' => ''],
     ];
 
-    // Statistics
+    // Load relations
     public function loadEducations()
     {
         $this->educations = auth('applicant')->user()->educations;
     }
+
     public function loadExperiences()
     {
         $this->experiences = auth('applicant')->user()->works;
+    }
+
+    public function loadDocuments()
+    {
+        $this->documents = ApplicantDocument::where('applicant_id', auth('applicant')->id())->get();
     }
 
     public function mount()
     {
         $this->loadEducations();
         $this->loadExperiences();
+        $this->loadDocuments();
+        $this->applicantName = auth('applicant')->user()->full_name;
+        $this->applicantEmail = auth('applicant')->user()->email;
+        $this->applicantFatherName = auth('applicant')->user()->father_name;
+        $this->applicantPhone = auth('applicant')->user()->phone;
+        $this->applicantCNIC = auth('applicant')->user()->cnic;
+        $this->applicantDateOfBirth = auth('applicant')->user()->date_of_birth;
+        $this->applicantLinkedIn = auth('applicant')->user()->linkedin;
+        $this->applicantMaritalStatus = auth('applicant')->user()->martial_status;
+        $this->applicantAddress = auth('applicant')->user()->address;
+        $this->applicantGender = ucfirst(strtolower(auth('applicant')->user()->gender));
+        $this->previousSalary = auth('applicant')->user()->previous_salary;
     }
+
     public function getStatsProperty()
     {
         return [
@@ -126,16 +166,16 @@ new class extends Component {
         return auth('applicant')->user()->jobApplications;
     }
 
-    // Offers data – using the Offer model (assumed relationship)
+    // Offers data
     public function getOffersProperty()
     {
-        return auth('applicant')->user()->offers; // Ensure 'offers' relationship exists
+        return auth('applicant')->user()->offers;
     }
 
     // Upcoming Interviews
     public function getUpcomingInterviewsProperty()
     {
-        return $this->allInterviews->where('scheduled_at', '>', now())->sortBy('scheduled_at')->values();
+        return $this->allInterviews->filter(fn($i) => $i->scheduled_at && $i->scheduled_at > now())->sortBy('scheduled_at')->values();
     }
 
     // All Interviews
@@ -173,14 +213,13 @@ new class extends Component {
         ];
     }
 
-    // Education Data (replace with DB)
-
     public function switchTab($tab)
     {
         $this->activeTab = $tab;
         if ($tab === 'profile') {
             $this->resetEducationForm();
             $this->resetExperienceForm();
+            $this->loadDocuments();
         }
     }
 
@@ -200,14 +239,24 @@ new class extends Component {
         $this->selectedOfferId = $id;
     }
 
+    public function showDocument($id)
+    {
+        $this->selectedDocumentId = $id;
+    }
+
     public function closeModal()
     {
         $this->selectedApplicationId = null;
         $this->selectedInterviewId = null;
         $this->selectedOfferId = null;
+        $this->selectedDocumentId = null;
     }
 
-    // FIXED: Renamed to logout() to avoid confusion with Livewire's emit()
+    public function closeDocumentModal()
+    {
+        $this->selectedDocumentId = null;
+    }
+
     public function logout()
     {
         auth('applicant')->logout();
@@ -238,10 +287,8 @@ new class extends Component {
             'negotiationNotes' => 'nullable|string|max:1000',
         ]);
 
-        // FIXED: Use find() and update the offer, not get()
         $offer = Offer::find($this->negotiatingOfferId);
         if ($offer && $offer->applicant_id == auth('applicant')->id()) {
-            // Update offer with negotiation details (you need appropriate columns)
             $offer->negotiation_proposed = $this->proposedSalary;
             $offer->negotiation_notes = $this->negotiationNotes;
             $offer->negotiation_status = 'pending';
@@ -275,9 +322,7 @@ new class extends Component {
             'withdrawReason' => 'required|string|max:1000',
         ]);
 
-        // Update offer status to 'withdrawn' (you need to add logic)
-        // ...
-
+        // Update offer status to 'withdrawn' (business logic placeholder)
         session()->flash('success', 'Your application has been withdrawn successfully.');
         $this->closeWithdraw();
     }
@@ -303,9 +348,7 @@ new class extends Component {
             'declineReason' => 'required|string|max:1000',
         ]);
 
-        // Update offer status to 'declined'
-        // ...
-
+        // Update offer status to 'declined' (business logic placeholder)
         session()->flash('success', 'Offer declined successfully.');
         $this->closeDecline();
     }
@@ -325,41 +368,36 @@ new class extends Component {
 
     public function submitAccept()
     {
-        // Update offer status to 'accepted'
-        // ...
+        // Update offer status to 'accepted' (business logic placeholder)
         session()->flash('success', 'Offer accepted successfully!');
         $this->dispatch('show-alert', ['message' => 'Offer accepted successfully!']);
         $this->closeAccept();
     }
 
-    // -------- PROFILE PHOTO UPLOAD (FIXED) --------
+    // -------- PROFILE PHOTO UPLOAD --------
     public function updatedPhoto()
     {
-        // Validate – exceptions will be caught by Livewire and displayed via $errors
         $this->validate([
-            'photo' => 'required|image|mimes:jpeg,png,jpg,gif', // 2MB max
+            'photo' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
 
         $user = auth('applicant')->user();
-        $jobApplicationsCount = $user->jobApplications->count();
+        $this->photoPreview = $this->photo;
 
-        if ($jobApplicationsCount > 0) {
-            UpdateImage::dispatch($user->id);
-        }
-        // Delete old photo if exists
         if ($user->photo && Storage::disk('public')->exists('applicant/' . $user->photo)) {
             Storage::disk('public')->delete('applicant/' . $user->photo);
         }
 
-        // Store new photo
         $path = $this->photo->store('applicant', 'public');
         $filename = basename($path);
 
-        // FIXED: Ensure 'photo' is fillable in the User/Applicant model
         $user->photo = $filename;
         $user->save();
 
-        // Clear the temporary upload and preview
+        if ($user->jobApplications()->count() > 0) {
+            UpdateImage::dispatch($user->id);
+        }
+
         $this->photo = null;
         $this->photoPreview = null;
 
@@ -388,16 +426,6 @@ new class extends Component {
         $this->showEducationForm = true;
     }
 
-    /**
-     * FIXED: Edit education.
-     *
-     * The old implementation read array keys directly (e.g. $education['institute_type']).
-     * Because `$this->educations` is an Eloquent collection, `collect()` converts every
-     * model to a plain array via toArray(). Any key that does not exist on the model
-     * (e.g. `institute_type`, `currently_studying`) raised an "Undefined array key"
-     * warning, which Laravel converts into an ErrorException – so the edit form never
-     * opened. All reads below are null-safe and the form is reset before being filled.
-     */
     public function editEducation($id)
     {
         $education = collect($this->educations)->first(function ($item) use ($id) {
@@ -409,17 +437,13 @@ new class extends Component {
             return;
         }
 
-        // Clear previous values + validation errors before filling the form
         $this->resetEducationForm();
         $this->resetValidation();
 
         $this->editingEducationId = data_get($education, 'id');
-
         $this->educationInstitution = (string) (data_get($education, 'institute') ?? (data_get($education, 'institution') ?? ''));
-
         $this->educationDegree = (string) (data_get($education, 'degree_name') ?? (data_get($education, 'degree') ?? ''));
 
-        // Normalise the institute type so it always matches the <select> options
         $type = strtolower(trim((string) (data_get($education, 'institute_type') ?? (data_get($education, 'education_type') ?? (data_get($education, 'type') ?? '')))));
 
         $this->educationType = match (true) {
@@ -431,13 +455,9 @@ new class extends Component {
         };
 
         $this->educationStartDate = $this->normalizeDate(data_get($education, 'graduate_start_year') ?? data_get($education, 'start_date'));
-
         $this->educationEndDate = $this->normalizeDate(data_get($education, 'graduate_end_year') ?? data_get($education, 'end_date'));
-
         $this->educationGrade = (string) (data_get($education, 'grade') ?? '');
-
         $this->educationDescription = (string) (data_get($education, 'description') ?? '');
-
         $this->educationCurrentlyStudying = (bool) (data_get($education, 'currently_studying') ?? (data_get($education, 'currently_studying_here') ?? false));
 
         if ($this->educationCurrentlyStudying) {
@@ -447,25 +467,35 @@ new class extends Component {
         $this->showEducationForm = true;
     }
 
-    /**
-     * Safely convert any date-ish value into a "Y-m-d" string for <input type="date">.
-     */
     private function normalizeDate($value): string
     {
         if ($value === null || $value === '') {
             return '';
         }
-
         if ($value instanceof \DateTimeInterface) {
             return $value->format('Y-m-d');
         }
-
         $timestamp = strtotime((string) $value);
-
         return $timestamp ? date('Y-m-d', $timestamp) : '';
     }
+
     public function updateProfile()
     {
+        $applicantPayload = [
+            'full_name' => $this->applicantName,
+            'email' => $this->applicantEmail,
+            'phone' => $this->applicantPhone,
+            'father_name' => $this->applicantFatherName,
+            'gender' => $this->applicantGender,
+            'cnic' => $this->applicantCNIC,
+            'martial_status' => $this->applicantMaritalStatus,
+            'date_of_birth' => $this->applicantDateOfBirth,
+            'linkedin' => $this->applicantLinkedIn,
+            //applicantPassword
+            // other fields...
+        ];
+
+        $this->applicantName = $this->applicantName;
         session()->flash('success', 'Profile Updated Successfully');
     }
 
@@ -478,7 +508,6 @@ new class extends Component {
                 'educationType' => ['required', Rule::in(['school', 'college', 'university'])],
                 'educationStartDate' => 'required|date',
                 'educationEndDate' => 'nullable|date|after:educationStartDate',
-
                 'educationDescription' => 'nullable|string',
                 'educationCurrentlyStudying' => 'boolean',
             ]);
@@ -487,45 +516,44 @@ new class extends Component {
                 $this->educationEndDate = null;
             }
 
-            // Save to DB (you need to implement)
-            // ...
+            $payload = [
+                'graduate_start_year' => $this->educationStartDate,
+                'graduate_end_year' => $this->educationEndDate,
+                'grade' => $this->educationGrade,
+                'degree_name' => $this->educationDegree,
+                'institute_type' => $this->educationType,
+                'institute' => $this->educationInstitution,
+
+                'applicant_id' => auth('applicant')->user()->id,
+            ];
 
             if (!$this->editingEducationId) {
-                \App\Models\ApplicantEducation::create([
-                    'graduate_start_year' => $this->educationStartDate,
-                    'graduate_end_year' => $this->educationEndDate,
-                    'grade' => $this->educationGrade,
-                    'degree_name' => $this->educationDegree,
-                    'institute_type' => $this->educationType,
-                    'institute' => $this->educationInstitution,
-                    'applicant_id' => auth('applicant')->user()->id,
-                ]);
+                $education = \App\Models\ApplicantEducation::create($payload);
+                $education_id = $education->id;
             } else {
-                \App\Models\ApplicantEducation::where('id', $this->editingEducationId)->update([
-                    'graduate_start_year' => $this->educationStartDate,
-                    'graduate_end_year' => $this->educationEndDate,
-                    'grade' => $this->educationGrade,
-                    'degree_name' => $this->educationDegree,
-                    'institute_type' => $this->educationType,
-                    'institute' => $this->educationInstitution,
-                    'applicant_id' => auth('applicant')->user()->id,
-                ]);
+                \App\Models\ApplicantEducation::where('id', $this->editingEducationId)->update($payload);
+                $education_id = $this->editingEducationId;
             }
+            \App\Jobs\UpdateEducation::dispatch($education_id);
 
+            // UpdateImage::dispatch(auth('applicant')->user()->id);
             session()->flash('success', $this->editingEducationId ? 'Education updated successfully!' : 'Education added successfully!');
             $this->loadEducations();
+            $this->loadDocuments();
             $this->resetEducationForm();
             $this->showEducationForm = false;
-        } catch (Exception $e) {
-            dd($e->getMessage());
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            session()->flash('error', $e->getMessage());
         }
     }
 
     public function deleteEducation($id)
     {
-        // Delete from DB
-        // ...
-        \App\Models\ApplicantEducation::where('id', $id)->delete();
+        \App\Models\ApplicantEducation::where('id', $id)
+            ->where('applicant_id', auth('applicant')->id())
+            ->delete();
 
         session()->flash('success', 'Education entry removed successfully!');
         $this->loadEducations();
@@ -548,7 +576,7 @@ new class extends Component {
         $this->experienceEndDate = '';
         $this->experienceDescription = '';
         $this->experienceCurrentlyWorking = false;
-        $this->experienceEmploymentType = 'full_time';
+        $this->experienceEmploymentType = 'permanent';
         $this->editingExperienceId = null;
         $this->showExperienceForm = false;
     }
@@ -556,27 +584,34 @@ new class extends Component {
     public function openExperienceForm()
     {
         $this->resetExperienceForm();
+        $this->resetValidation();
         $this->showExperienceForm = true;
     }
 
-    // FIXED: editExperience now uses 'designation' to populate experienceTitle
     public function editExperience($id)
     {
-        $experiences = $this->experiences;
-        $experience = collect($experiences)->firstWhere('id', $id);
+        $experience = collect($this->experiences)->first(function ($item) use ($id) {
+            return (string) data_get($item, 'id') === (string) $id;
+        });
 
-        if ($experience) {
-            $this->editingExperienceId = $experience['id'];
-            $this->experienceCompany = $experience['company'];
-            // FIXED: Use 'designation' if that's the column name in DB/mock data
-            $this->experienceTitle = $experience['designation'] ?? ($experience['title'] ?? '');
-            $this->experienceLocation = $experience['location'] ?? '';
-            $this->experienceStartDate = $experience['start_date'];
-            $this->experienceEndDate = $experience['end_date'];
-            $this->experienceDescription = $experience['description'];
-            $this->experienceEmploymentType = $experience['experience_type'] ?? 'full_time';
-            $this->showExperienceForm = true;
+        if (!$experience) {
+            session()->flash('error', 'Experience record not found.');
+            return;
         }
+
+        $this->resetExperienceForm();
+        $this->resetValidation();
+
+        $this->editingExperienceId = data_get($experience, 'id');
+        $this->experienceCompany = (string) (data_get($experience, 'company') ?? '');
+        $this->experienceTitle = (string) (data_get($experience, 'designation') ?? (data_get($experience, 'title') ?? ''));
+        $this->experienceLocation = (string) (data_get($experience, 'location') ?? '');
+        $this->experienceStartDate = $this->normalizeDate(data_get($experience, 'start_date'));
+        $this->experienceEndDate = $this->normalizeDate(data_get($experience, 'end_date'));
+        $this->experienceDescription = (string) (data_get($experience, 'description') ?? '');
+        $this->experienceEmploymentType = (string) (data_get($experience, 'experience_type') ?? 'permanent');
+        $this->experienceCurrentlyWorking = !data_get($experience, 'end_date');
+        $this->showExperienceForm = true;
     }
 
     public function saveExperience()
@@ -584,36 +619,68 @@ new class extends Component {
         $this->validate([
             'experienceCompany' => 'required|string|max:255',
             'experienceTitle' => 'required|string|max:255',
-            'experienceLocation' => 'required|string|max:255',
             'experienceStartDate' => 'required|date',
             'experienceEndDate' => 'nullable|date|after:experienceStartDate',
             'experienceDescription' => 'nullable|string',
             'experienceCurrentlyWorking' => 'boolean',
-            'experienceEmploymentType' => 'required|in:permanent,part-time,contract,freelance,internship',
+            'experienceEmploymentType' => 'required',
         ]);
+
+        $applicant_id = auth('applicant')->user()->id;
 
         if ($this->experienceCurrentlyWorking) {
             $this->experienceEndDate = null;
         }
 
-        // Save to DB (implement)
-        // ...
+        $months = 0;
+        if ($this->experienceStartDate) {
+            $startDate = Carbon::parse($this->experienceStartDate);
+            $endDate = $this->experienceEndDate ? Carbon::parse($this->experienceEndDate) : now();
+            $months = (int) round($startDate->diffInMonths($endDate));
+        }
 
+        $payload = [
+            'company' => $this->experienceCompany,
+            'designation' => $this->experienceTitle,
+
+            'start_date' => $this->experienceStartDate,
+            'experience_type' => $this->experienceEmploymentType,
+            'end_date' => $this->experienceEndDate,
+
+            'month_of_experience' => $months,
+            'applicant_id' => $applicant_id,
+        ];
+
+        if ($this->editingExperienceId) {
+            \App\Models\ApplicantWork::where('id', $this->editingExperienceId)->where('applicant_id', $applicant_id)->update($payload);
+            $work_id = $this->editingExperienceId;
+        } else {
+            $applicant_work = \App\Models\ApplicantWork::create($payload);
+            $work_id = $applicant_work->id;
+        }
+        \App\Jobs\UpdateWork::dispatch($work_id);
+        $this->loadExperiences();
+        $this->loadDocuments();
         session()->flash('success', $this->editingExperienceId ? 'Experience updated successfully!' : 'Experience added successfully!');
+
         $this->resetExperienceForm();
         $this->showExperienceForm = false;
     }
 
     public function deleteExperience($id)
     {
-        // Delete from DB
-        // ...
+        \App\Models\ApplicantWork::where('id', $id)
+            ->where('applicant_id', auth('applicant')->id())
+            ->delete();
+
         session()->flash('success', 'Experience entry removed successfully!');
+        $this->loadExperiences();
     }
 
     public function cancelExperienceForm()
     {
         $this->resetExperienceForm();
+        $this->resetValidation();
         $this->showExperienceForm = false;
     }
 
@@ -637,7 +704,6 @@ new class extends Component {
 
     public function goBack()
     {
-        // FIXED: Implement as needed – maybe redirect to previous page
         return redirect()->back();
     }
 
@@ -664,7 +730,6 @@ new class extends Component {
                         class="btn btn-light btn-sm rounded-pill px-3 px-md-4 fw-medium shadow-sm">
                         <i class="bi bi-arrow-left me-1"></i> Back
                     </button>
-                    {{-- FIXED: Changed emit('logout') to logout --}}
                     <button type="button" wire:click="logout"
                         class="btn btn-light btn-sm rounded-pill px-3 px-md-4 fw-medium shadow-sm">
                         <i class="bi bi-box-arrow-right me-1"></i> Logout
@@ -751,7 +816,6 @@ new class extends Component {
 
         {{-- DASHBOARD --}}
         @if ($activeTab === 'dashboard')
-            {{-- Stats Cards --}}
             <div class="row g-3 mb-4">
                 <div class="col-6 col-md-3">
                     <div class="card border-0 shadow rounded-4 h-100">
@@ -839,29 +903,32 @@ new class extends Component {
                             </thead>
                             <tbody>
                                 @forelse ($this->upcomingInterviews as $interview)
-                                    <tr>
+                                    <tr wire:key="up-{{ $interview->id }}">
                                         <td class="ps-3 ps-md-4 fw-semibold small">
-                                            {{ $interview['jobApplication']['jobPosting']['department']['name'] }}
+                                            {{ data_get($interview, 'jobApplication.jobPosting.designation.name', '—') }}
                                         </td>
                                         <td>
                                             <div class="small">
-                                                {{ \Carbon\Carbon::parse($interview['date'])->format('M d, Y') }}</div>
-                                            <small class="text-muted">{{ $interview['time'] }}</small>
+                                                {{ $interview->scheduled_at ? \Carbon\Carbon::parse($interview->scheduled_at)->format('M d, Y') : '—' }}
+                                            </div>
+                                            <small class="text-muted">
+                                                {{ $interview->scheduled_at ? \Carbon\Carbon::parse($interview->scheduled_at)->format('h:i a') : '' }}
+                                            </small>
                                         </td>
                                         <td class="d-none d-lg-table-cell"><span
-                                                class="badge bg-secondary small">{{ $interview['type'] }}</span></td>
+                                                class="badge bg-secondary small">{{ $interview->type ?? '—' }}</span>
+                                        </td>
                                         <td><span
-                                                class="badge bg-{{ $interview['status'] === 'completed' ? 'success' : 'warning' }} rounded-pill small">{{ $interview['status'] == 'completed' ? 'Completed' : 'Scheduled' }}</span>
+                                                class="badge bg-{{ $interview->status === 'completed' ? 'success' : 'warning' }} rounded-pill small">{{ $interview->status == 'completed' ? 'Completed' : 'Scheduled' }}</span>
                                         </td>
                                         <td class="pe-3 pe-md-4 text-end">
                                             <div class="d-flex justify-content-end gap-1 gap-md-2">
-                                                @if ($interview['meeting_link'])
-                                                    <button
-                                                        wire:click="joinMeeting('{{ $interview['meeting_link'] }}')"
+                                                @if ($interview->meeting_link)
+                                                    <button wire:click="joinMeeting('{{ $interview->meeting_link }}')"
                                                         class="btn btn-sm btn-primary rounded-pill px-2 px-md-3"><i
                                                             class="bi bi-camera-video"></i></button>
                                                 @endif
-                                                <button wire:click="showInterview({{ $interview['id'] }})"
+                                                <button wire:click="showInterview({{ $interview->id }})"
                                                     class="btn btn-sm btn-outline-primary rounded-pill px-2 px-md-3">Details</button>
                                             </div>
                                         </td>
@@ -902,20 +969,20 @@ new class extends Component {
                             </thead>
                             <tbody>
                                 @forelse ($this->recentApplications as $application)
-                                    <tr>
+                                    <tr wire:key="rapp-{{ $application->id }}">
                                         <td class="ps-3 ps-md-4 fw-semibold small">
-                                            {{ $application['jobPosting']['designation']['name'] }}
+                                            {{ data_get($application, 'jobPosting.designation.name', '—') }}
                                         </td>
                                         <td class="small">
-                                            {{ \Carbon\Carbon::parse($application['created_at'])->diffForHumans() }}
+                                            {{ $application->created_at ? \Carbon\Carbon::parse($application->created_at)->diffForHumans() : '—' }}
                                         </td>
                                         <td>
                                             @php $statusColors = ['pending'=>'warning','interview'=>'info','offered'=>'success','rejected'=>'danger']; @endphp
                                             <span
-                                                class="badge bg-{{ $statusColors[$application['status']] ?? 'secondary' }} rounded-pill small">{{ str()->headline($application['status']) }}</span>
+                                                class="badge bg-{{ $statusColors[$application->status] ?? 'secondary' }} rounded-pill small">{{ str()->headline($application->status) }}</span>
                                         </td>
                                         <td class="pe-3 pe-md-4 text-end">
-                                            <button wire:click="showApplication({{ $application['id'] }})"
+                                            <button wire:click="showApplication({{ $application->id }})"
                                                 class="btn btn-sm btn-outline-primary rounded-pill px-2 px-md-3 small">View</button>
                                         </td>
                                     </tr>
@@ -973,21 +1040,23 @@ new class extends Component {
                             </thead>
                             <tbody>
                                 @forelse ($this->recentApplications as $application)
-                                    <tr>
+                                    <tr wire:key="app-{{ $application->id }}">
                                         <td class="ps-3 ps-md-4 fw-semibold small">
-                                            {{ $application['jobPosting']['designation']['name'] }}
+                                            {{ data_get($application, 'jobPosting.designation.name', '—') }}
                                         </td>
                                         <td class="d-none d-lg-table-cell"><span
-                                                class="badge bg-secondary small">{{ str()->headline($application['jobPosting']['employment_type']) }}</span>
+                                                class="badge bg-secondary small">{{ str()->headline(data_get($application, 'jobPosting.employment_type', '')) }}</span>
                                         </td>
-                                        <td class="small">{{ $application['created_at']->format('d M Y') }}</td>
+                                        <td class="small">
+                                            {{ $application->created_at ? $application->created_at->format('d M Y') : '—' }}
+                                        </td>
                                         <td>
                                             @php $statusColors = ['pending'=>'warning','interview'=>'info','offered'=>'success','rejected'=>'danger']; @endphp
                                             <span
-                                                class="badge bg-{{ $statusColors[$application['status']] ?? 'secondary' }} rounded-pill small">{{ str()->headline($application['status']) }}</span>
+                                                class="badge bg-{{ $statusColors[$application->status] ?? 'secondary' }} rounded-pill small">{{ str()->headline($application->status) }}</span>
                                         </td>
                                         <td class="pe-3 pe-md-4 text-end">
-                                            <button wire:click="showApplication({{ $application['id'] }})"
+                                            <button wire:click="showApplication({{ $application->id }})"
                                                 class="btn btn-sm btn-outline-primary rounded-pill px-2 px-md-3 small">View</button>
                                         </td>
                                     </tr>
@@ -1068,40 +1137,41 @@ new class extends Component {
                                     </thead>
                                     <tbody>
                                         @forelse ($this->allInterviews as $interview)
-                                            <tr>
+                                            <tr wire:key="int-{{ $interview->id }}">
                                                 <td class="ps-3 ps-md-4 fw-semibold small">
-                                                    {{ $interview['jobApplication']['jobPosting']['designation']['name'] }}
+                                                    {{ data_get($interview, 'jobApplication.jobPosting.designation.name', '—') }}
                                                 </td>
                                                 <td class="d-none d-lg-table-cell small">
-                                                    {{ $interview['interviewer']['name'] }}</td>
+                                                    {{ data_get($interview, 'interviewer.name', '—') }}</td>
                                                 <td>
                                                     <div class="small">
-                                                        {{ \Carbon\Carbon::parse($interview['scheduled_at'])->format('M d, Y') }}
-                                                    </div><small
-                                                        class="text-muted">{{ $interview['scheduled_at']->format('h:i a') }}</small>
+                                                        {{ $interview->scheduled_at ? \Carbon\Carbon::parse($interview->scheduled_at)->format('M d, Y') : '—' }}
+                                                    </div>
+                                                    <small class="text-muted">
+                                                        {{ $interview->scheduled_at ? \Carbon\Carbon::parse($interview->scheduled_at)->format('h:i a') : '' }}
+                                                    </small>
                                                 </td>
                                                 <td class="d-none d-xl-table-cell"><span
                                                         class="badge bg-light text-dark small"><i
-                                                            class="bi bi-{{ $interview['mode'] === 'online' ? 'camera-video' : ($interview['mode'] === 'physical' ? 'building' : 'telephone') }} me-1"></i>{{ $interview['mode'] }}</span>
+                                                            class="bi bi-{{ $interview->mode === 'online' ? 'camera-video' : ($interview->mode === 'physical' ? 'building' : 'telephone') }} me-1"></i>{{ $interview->mode }}</span>
                                                 </td>
                                                 <td><span
-                                                        class="badge bg-{{ $interview['status'] === 'scheduled' ? 'success' : 'warning' }} rounded-pill small">{{ $interview['status'] }}</span>
+                                                        class="badge bg-{{ $interview->status === 'scheduled' ? 'success' : 'warning' }} rounded-pill small">{{ $interview->status }}</span>
                                                 </td>
                                                 <td class="pe-3 pe-md-4 text-end">
                                                     <div class="d-flex justify-content-end gap-1">
-                                                        @if ($interview['meeting_link'])
+                                                        @if ($interview->meeting_link)
                                                             <button
-                                                                wire:click="joinMeeting('{{ $interview['meeting_link'] }}')"
+                                                                wire:click="joinMeeting('{{ $interview->meeting_link }}')"
                                                                 class="btn btn-sm btn-primary rounded-pill px-2 px-md-3"><i
                                                                     class="bi bi-camera-video"></i></button>
                                                         @endif
-                                                        <a href="{{ route('jobs.interviews.entry-pass', $interview['id']) }}"
+                                                        <a href="{{ route('jobs.interviews.entry-pass', $interview->id) }}"
                                                             class="btn btn-primary">
                                                             <i class="fas fa-download"></i>
                                                             Download Entry Pass
                                                         </a>
-
-                                                        <button wire:click="showInterview({{ $interview['id'] }})"
+                                                        <button wire:click="showInterview({{ $interview->id }})"
                                                             class="btn btn-sm btn-outline-primary rounded-pill px-2 px-md-3 small">Details</button>
                                                     </div>
                                                 </td>
@@ -1171,39 +1241,39 @@ new class extends Component {
         @if ($activeTab === 'offers')
             <div class="row g-3">
                 @forelse ($this->offers as $offer)
-                    <div class="col-12 col-md-6 col-xl-4">
+                    <div class="col-12 col-md-6 col-xl-4" wire:key="offer-{{ $offer->id }}">
                         <div class="card border-0 shadow rounded-4 h-100">
                             <div class="card-body p-3 p-md-4 d-flex flex-column">
                                 <div class="d-flex justify-content-between align-items-start mb-2">
                                     <h5 class="fw-bold mb-0 fs-6">
-                                        {{ $offer->jobApplication->jobPosting->designation->name }}</h5>
+                                        {{ data_get($offer, 'jobApplication.jobPosting.designation.name', '—') }}</h5>
                                     <span class="badge bg-success rounded-pill small">Offered</span>
                                 </div>
 
                                 <div class="mb-2">
                                     <span
-                                        class="badge bg-light text-dark small">{{ $offer->jobApplication->jobPosting->employment_type }}</span>
+                                        class="badge bg-light text-dark small">{{ data_get($offer, 'jobApplication.jobPosting.employment_type', '') }}</span>
                                     <span
                                         class="badge bg-info text-dark small ms-1">Rs{{ $offer->approved_salary ?? $offer->candidate_expected_salary }}</span>
                                 </div>
                                 <div class="mt-auto">
                                     <div class="d-flex flex-wrap justify-content-between align-items-center mb-2">
                                         <small class="text-muted">Start Date:
-                                            {{ \Carbon\Carbon::parse($offer->start_date)->format('M d, Y') }}</small>
+                                            {{ $offer->start_date ? \Carbon\Carbon::parse($offer->start_date)->format('M d, Y') : '—' }}</small>
                                         <small class="text-muted">Expires:
-                                            {{ \Carbon\Carbon::parse($offer->expiry_date)->format('M d, Y') }}</small>
+                                            {{ $offer->expiry_date ? \Carbon\Carbon::parse($offer->expiry_date)->format('M d, Y') : '—' }}</small>
                                     </div>
                                     <div class="d-flex flex-wrap gap-2">
-                                        <button wire:click="showOffer({{ $offer['id'] }})"
+                                        <button wire:click="showOffer({{ $offer->id }})"
                                             class="btn btn-outline-primary rounded-pill flex-fill small"><i
                                                 class="bi bi-eye me-1"></i> View</button>
-                                        <button wire:click="openNegotiate({{ $offer['id'] }})"
+                                        <button wire:click="openNegotiate({{ $offer->id }})"
                                             class="btn btn-outline-warning rounded-pill flex-fill small"><i
                                                 class="bi bi-currency-dollar me-1"></i> Negotiate</button>
-                                        <button wire:click="openWithdraw({{ $offer['id'] }})"
+                                        <button wire:click="openWithdraw({{ $offer->id }})"
                                             class="btn btn-outline-danger rounded-pill flex-fill small"><i
                                                 class="bi bi-x-circle me-1"></i> Withdraw</button>
-                                        <button wire:click="openDecline({{ $offer['id'] }})"
+                                        <button wire:click="openDecline({{ $offer->id }})"
                                             class="btn btn-outline-dark rounded-pill flex-fill small"><i
                                                 class="bi bi-hand-thumbs-down me-1"></i> Decline</button>
                                     </div>
@@ -1229,7 +1299,7 @@ new class extends Component {
         @if ($activeTab === 'saved')
             <div class="row g-3">
                 @forelse ($this->savedJobs as $job)
-                    <div class="col-12 col-md-6">
+                    <div class="col-12 col-md-6" wire:key="saved-{{ $job['id'] }}">
                         <div class="card border-0 shadow rounded-4 h-100">
                             <div class="card-body p-3 p-md-4">
                                 <div class="d-flex justify-content-between align-items-start mb-3">
@@ -1282,7 +1352,6 @@ new class extends Component {
                 <div class="col-md-4">
                     <div class="card border-0 shadow rounded-4">
                         <div class="card-body p-3 p-md-4 text-center">
-                            {{-- FIXED: Profile photo display and error messages --}}
                             <div class="position-relative d-inline-block mb-3">
                                 @php $user = auth('applicant')->user(); @endphp
                                 <img src="{{ $user->photo ? asset('storage/applicant/' . $user->photo) : asset('default-avatar.png') }}"
@@ -1306,12 +1375,12 @@ new class extends Component {
                                         style="object-fit: cover; opacity: 0.7;">
                                 @endif
                             </div>
-                            {{-- FIXED: Display validation error for photo --}}
                             @error('photo')
                                 <span class="text-danger small d-block mb-2">{{ $message }}</span>
                             @enderror
 
-                            <h5 class="fw-bold fs-6">{{ auth('applicant')->user()->full_name }}</h5>
+                            <h5 class="fw-bold fs-6"> {{ $applicantName }}
+                            </h5>
                             <p class="text-muted small">
                                 {{ auth('applicant')->user()->works?->last()?->designation ?? 'N/A' }}</p>
                             <div class="d-flex justify-content-center gap-1 flex-wrap">
@@ -1347,57 +1416,66 @@ new class extends Component {
                             <form wire:submit.prevent="updateProfile">
                                 <div class="row g-3">
                                     <div class="col-md-6"><label class="form-label fw-semibold small">Full
-                                            Name</label><input type="text" class="form-control form-control-sm"
-                                            value="{{ auth('applicant')->user()->full_name }}"></div>
+                                            Name</label><input type="text" wire:model="applicantName"
+                                            class="form-control form-control-sm"></div>
                                     <div class="col-md-6"><label
                                             class="form-label fw-semibold small">Email</label><input type="email"
-                                            class="form-control form-control-sm"
-                                            value="{{ auth('applicant')->user()->email }}"></div>
+                                            wire:model="applicantEmail" class="form-control form-control-sm"></div>
                                     <div class="col-md-6"><label
                                             class="form-label fw-semibold small">Phone</label><input type="text"
-                                            class="form-control form-control-sm"
-                                            value="{{ auth('applicant')->user()->phone }}"></div>
+                                            wire:model="applicantPhone" class="form-control form-control-sm"></div>
                                     <div class="col-md-6"><label class="form-label fw-semibold small">Father
                                             Name</label><input type="text" class="form-control form-control-sm"
-                                            value="{{ auth('applicant')->user()->father_name }}"></div>
+                                            wire:model="applicantFatherName"></div>
                                     <div class="col-md-6"><label
                                             class="form-label fw-semibold small">CNIC</label><input type="text"
-                                            class="form-control form-control-sm"
-                                            value="{{ auth('applicant')->user()->cnic }}"></div>
+                                            class="form-control form-control-sm" wire:model="applicantCNIC"></div>
                                     <div class="col-md-6"><label class="form-label fw-semibold small">Date Of
                                             Birth</label><input type="date" class="form-control form-control-sm"
-                                            value="{{ auth('applicant')->user()->date_of_birth }}"></div>
+                                            wire:model="applicantDateOfBirth"></div>
                                     <div class="col-md-6"><label
                                             class="form-label fw-semibold small">LinkedIn</label><input type="text"
-                                            class="form-control form-control-sm"
-                                            value="{{ auth('applicant')->user()->linkedin }}"></div>
+                                            class="form-control form-control-sm" wire:model="applicantLinkedIn"></div>
                                     <div class="col-md-6"><label
                                             class="form-label fw-semibold small">Password</label><input type="text"
-                                            class="form-control form-control-sm" value=""></div>
+                                            class="form-control form-control-sm" wire:model="applicantPassword"
+                                            value=""></div>
                                     <div class="row mt-3">
                                         <div class="col-md-6 mb-3">
                                             <label class="form-label d-block">Marital Status</label>
                                             <div class="form-check form-check-inline"><input class="form-check-input"
-                                                    type="radio" name="marital_status" id="married"
+                                                    type="radio" wire:model="applicantMaritalStatus" id="married"
                                                     value="married"><label class="form-check-label"
                                                     for="married">Married</label></div>
                                             <div class="form-check form-check-inline"><input class="form-check-input"
-                                                    type="radio" name="marital_status" id="unmarried"
-                                                    value="Unmarried"><label class="form-check-label"
-                                                    for="unmarried">Unmarried</label></div>
+                                                    type="radio" wire:model="applicantMaritalStatus" id="single"
+                                                    value="single"><label class="form-check-label"
+                                                    for="unmarried">Single</label></div>
                                         </div>
                                         <div class="col-md-6 mb-3">
                                             <label class="form-label d-block">Gender</label>
                                             <div class="form-check form-check-inline"><input class="form-check-input"
-                                                    type="radio" name="gender" id="male"
+                                                    type="radio" wire:model="applicantGender" id="male"
                                                     value="Male"><label class="form-check-label"
                                                     for="male">Male</label></div>
                                             <div class="form-check form-check-inline"><input class="form-check-input"
-                                                    type="radio" name="gender" id="female"
+                                                    type="radio" wire:model="applicantGender" id="female"
                                                     value="Female"><label class="form-check-label"
                                                     for="female">Female</label></div>
                                         </div>
                                     </div>
+
+                                    <div class="col-md-6"><label class="form-label fw-semibold small">Address</label>
+                                        <textarea rows="2" wire:model="applicantAddress" class="form-control form-control-sm">
+                                        
+                                        </textarea>
+                                    </div>
+                                    <div class="col-md-6"><label class="form-label fw-semibold small">Previous
+                                            Salary</label>
+                                        <input type="text" class="form-control form-control-sm"
+                                            wire:model="previousSalary">
+                                    </div>
+
                                     <div class="col-12"><label class="form-label fw-semibold small">About</label>
                                         <textarea rows="2" class="form-control form-control-sm">Experienced Laravel developer with 5+ years of experience...</textarea>
                                     </div>
@@ -1450,8 +1528,8 @@ new class extends Component {
                                                     class="form-label fw-semibold small">Employment Type
                                                     *</label><select wire:model="experienceEmploymentType"
                                                     class="form-select form-select-sm @error('experienceEmploymentType') is-invalid @enderror">
-                                                    <option value="permenant">Full Time</option>
-                                                    <option value="part_time">Part Time</option>
+                                                    <option value="permanent">Permanent</option>
+                                                    <option value="part-time">Part Time</option>
                                                     <option value="contract">Contract</option>
                                                     <option value="freelance">Freelance</option>
                                                     <option value="internship">Internship</option>
@@ -1503,7 +1581,7 @@ new class extends Component {
                             @if (count($experiences) > 0)
                                 <div class="row g-3">
                                     @foreach ($experiences as $experience)
-                                        <div class="col-12">
+                                        <div class="col-12" wire:key="exp-{{ $experience['id'] }}">
                                             <div
                                                 class="d-flex justify-content-between align-items-start p-3 bg-light rounded-4">
                                                 <div class="flex-grow-1">
@@ -1519,7 +1597,6 @@ new class extends Component {
                                                     </div>
                                                     <p class="mb-1 small"><i
                                                             class="bi bi-building me-1"></i>{{ $experience['company'] }}
-
                                                     </p>
                                                     <div class="d-flex flex-wrap gap-2 mb-1"><small
                                                             class="text-muted"><i
@@ -1561,7 +1638,7 @@ new class extends Component {
                     </div>
 
                     {{-- Education --}}
-                    <div class="card border-0 shadow rounded-4">
+                    <div class="card border-0 shadow rounded-4 mb-3">
                         <div class="card-header bg-white border-0 p-3 p-md-4">
                             <div class="d-flex justify-content-between align-items-center">
                                 <h5 class="fw-bold mb-0 fs-6 fs-md-5"><i
@@ -1600,15 +1677,12 @@ new class extends Component {
                                             <div class="col-md-6"><label
                                                     class="form-label fw-semibold small">Institute
                                                     Type *</label>
-
                                                 <select wire:model="educationType"
                                                     class="form-select form-select-sm @error('educationType') is-invalid @enderror">
-
                                                     <option value="">Select Institute Type</option>
                                                     <option value="school">School</option>
                                                     <option value="college">College</option>
                                                     <option value="university">University</option>
-
                                                 </select>
                                                 @error('educationType')
                                                     <div class="invalid-feedback small">{{ $message }}</div>
@@ -1667,32 +1741,26 @@ new class extends Component {
                                                 <div class="flex-grow-1">
                                                     <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
                                                         <h6 class="fw-bold mb-0">{{ $education['degree_name'] }}</h6>
-
                                                     </div>
                                                     <p class="mb-1 small"><i
                                                             class="bi bi-building me-1"></i>{{ $education['institute'] }}
-
                                                     </p>
                                                     <div class="d-flex flex-wrap gap-2 mb-1">
                                                         <small class="text-muted"><i
                                                                 class="bi bi-calendar me-1"></i>{{ \Carbon\Carbon::parse($education['graduate_start_year'])->format('d M Y') }}
-                                                            @php
-
-                                                                if ($education['graduate_end_year'] != null) {
-                                                                    $conditioneducation = 0;
-                                                                }
-                                                            @endphp
-
-                                                            -
-                                                            {{ \Carbon\Carbon::parse($education['graduate_end_year'])->format('d M Y') }}
-
+                                                            @if (!empty($education['graduate_end_year']))
+                                                                -
+                                                                {{ \Carbon\Carbon::parse($education['graduate_end_year'])->format('d M Y') }}
+                                                            @else
+                                                                - Present
+                                                            @endif
                                                         </small>
-                                                        @if ($education['grade'])
+                                                        @if (!empty($education['grade']))
                                                             <small class="text-muted"><i
                                                                     class="bi bi-star me-1"></i>{{ $education['grade'] }}</small>
                                                         @endif
                                                     </div>
-                                                    @if ($education['description'])
+                                                    @if (!empty($education['description']))
                                                         <p class="mb-0 small text-muted">
                                                             {{ $education['description'] }}</p>
                                                     @endif
@@ -1719,6 +1787,65 @@ new class extends Component {
                             @endif
                         </div>
                     </div>
+
+                    {{-- Uploaded Documents (NEW SECTION) --}}
+                    <div class="card border-0 shadow rounded-4">
+                        <div class="card-header bg-white border-0 p-3 p-md-4">
+                            <h5 class="fw-bold mb-0 fs-6 fs-md-5"><i
+                                    class="bi bi-file-earmark-text text-primary me-2"></i>Uploaded Documents</h5>
+                        </div>
+                        <div class="card-body p-3 p-md-4">
+                            @if (count($documents) > 0)
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle mb-0">
+                                        <thead class="bg-light">
+                                            <tr>
+                                                <th class="ps-3 ps-md-4">Document Type</th>
+                                                <th>File Name</th>
+                                                <th class="d-none d-lg-table-cell">Uploaded At</th>
+                                                <th>Status</th>
+                                                <th class="pe-3 pe-md-4 text-end">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach ($documents as $document)
+                                                <tr wire:key="doc-{{ $document->id }}">
+                                                    <td class="ps-3 ps-md-4 fw-semibold small">
+                                                        {{ str()->headline($document->document_type) }}
+                                                    </td>
+                                                    <td class="small">{{ $document->file_name }}</td>
+                                                    <td class="d-none d-lg-table-cell small">
+                                                        {{ $document->created_at ? \Carbon\Carbon::parse($document->created_at)->format('d M Y') : '—' }}
+                                                    </td>
+                                                    <td>
+                                                        @if ($document->is_verified)
+                                                            <span
+                                                                class="badge bg-success rounded-pill small">Verified</span>
+                                                        @else
+                                                            <span
+                                                                class="badge bg-warning rounded-pill small">Pending</span>
+                                                        @endif
+                                                    </td>
+                                                    <td class="pe-3 pe-md-4 text-end">
+                                                        <button wire:click="showDocument({{ $document->id }})"
+                                                            class="btn btn-sm btn-outline-primary rounded-pill px-2 px-md-3 small">
+                                                            <i class="bi bi-eye me-1"></i> View
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            @else
+                                <div class="text-center py-4">
+                                    <i class="bi bi-file-earmark fs-1 text-muted d-block mb-2"></i>
+                                    <p class="text-muted mb-0 small">No documents uploaded yet.</p>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+
                 </div>
             </div>
         @endif
@@ -1734,27 +1861,28 @@ new class extends Component {
                     <div class="modal-content shadow rounded-4 border-0">
                         <div class="modal-header border-0 p-4">
                             <div>
-                                <h5 class="fw-bold mb-1">{{ $app['jobPosting']['designation']['name'] }}</h5>
+                                <h5 class="fw-bold mb-1">{{ data_get($app, 'jobPosting.designation.name', '—') }}
+                                </h5>
                             </div>
                             <button type="button" class="btn-close" wire:click="closeModal"></button>
                         </div>
                         <div class="modal-body p-4 pt-0">
                             <div class="row g-3">
                                 <div class="col-md-6"><small class="text-muted d-block">Type</small><strong
-                                        class="small">{{ str()->headline($app['jobPosting']['employment_type']) }}</strong>
+                                        class="small">{{ str()->headline(data_get($app, 'jobPosting.employment_type', '')) }}</strong>
                                 </div>
                                 <div class="col-md-6"><small class="text-muted d-block">Applied Date</small><strong
-                                        class="small">{{ \Carbon\Carbon::parse($app->created_at)->format('d F, Y') }}</strong>
+                                        class="small">{{ $app->created_at ? \Carbon\Carbon::parse($app->created_at)->format('d F, Y') : '—' }}</strong>
                                 </div>
                                 <div class="col-md-6">
                                     <small class="text-muted d-block">Status</small>
                                     @php $statusColors = ['pending'=>'warning','interview'=>'info','offered'=>'success','rejected'=>'danger']; @endphp
                                     <span
-                                        class="badge bg-{{ $statusColors[$app['status']] ?? 'secondary' }} rounded-pill small">{{ ucfirst(str()->headline($app['status'])) }}</span>
+                                        class="badge bg-{{ $statusColors[$app->status] ?? 'secondary' }} rounded-pill small">{{ ucfirst(str()->headline($app->status)) }}</span>
                                 </div>
                                 @if ($app->interview)
                                     <div class="row g-3 border-top">
-                                        <div class="col-6 ">
+                                        <div class="col-6">
                                             <h6 class="fw-bold small text-info"><i
                                                     class="bi bi-calendar-event me-1"></i>Interview Scheduled</h6>
                                             <div class="small">
@@ -1768,28 +1896,22 @@ new class extends Component {
                                                     class="bi bi-calendar-event me-1"></i>Interview Mode</h6>
                                             <div class="small">
                                                 {{ ucfirst($app->interview->mode) }}
-
                                             </div>
                                         </div>
-
                                         <div class="col-6">
                                             <h6 class="fw-bold small text-info"><i
                                                     class="bi bi-calendar-event me-1"></i>Interviewer Name</h6>
                                             <div class="small">
-                                                {{ $app->interview->interviewer->name }}
-
+                                                {{ data_get($app, 'interview.interviewer.name', '—') }}
                                             </div>
                                         </div>
                                         <div class="col-6">
                                             <h6 class="fw-bold small text-info"><i
                                                     class="bi bi-calendar-event me-1"></i>Interviewer companyEmail</h6>
                                             <div class="small">
-                                                {{ $app->interview->interviewer->email }}
-
+                                                {{ data_get($app, 'interview.interviewer.email', '—') }}
                                             </div>
                                         </div>
-
-
                                     </div>
                                 @endif
                             </div>
@@ -1815,30 +1937,32 @@ new class extends Component {
                         <div class="modal-header border-0 p-4">
                             <div>
                                 <h5 class="fw-bold mb-1">
-                                    {{ $int['jobApplication']['jobPosting']['designation']['name'] }}</h5>
+                                    {{ data_get($int, 'jobApplication.jobPosting.designation.name', '—') }}</h5>
                             </div>
                             <button type="button" class="btn-close" wire:click="closeModal"></button>
                         </div>
                         <div class="modal-body p-4 pt-0">
                             <div class="row g-3">
                                 <div class="col-md-6"><small class="text-muted d-block">Interviewer</small><strong
-                                        class="small">{{ $int['interviewer']['name'] }}</strong></div>
+                                        class="small">{{ data_get($int, 'interviewer.name', '—') }}</strong></div>
                                 <div class="col-md-6"><small class="text-muted d-block">Date & Time</small><strong
-                                        class="small">{{ \Carbon\Carbon::parse($int['scheduled_at'])->format('M d, Y') }}
-                                        at
-                                        {{ $int['scheduled_at']->format('h:i a') }}</strong></div>
+                                        class="small">{{ $int->scheduled_at ? \Carbon\Carbon::parse($int->scheduled_at)->format('M d, Y') : '—' }}
+                                        @if ($int->scheduled_at)
+                                            at {{ \Carbon\Carbon::parse($int->scheduled_at)->format('h:i a') }}
+                                        @endif
+                                    </strong></div>
                                 <div class="col-md-6"><small class="text-muted d-block">Type</small><strong
-                                        class="small">{{ $int['type'] }}</strong></div>
+                                        class="small">{{ $int->type ?? '—' }}</strong></div>
                                 <div class="col-md-6"><small class="text-muted d-block">Mode</small><span
                                         class="badge bg-light text-dark small"><i
-                                            class="bi bi-{{ $int['mode'] === 'online' ? 'camera-video' : ($int['mode'] === 'physical' ? 'building' : 'telephone') }} me-1"></i>{{ $int['mode'] }}</span>
+                                            class="bi bi-{{ $int->mode === 'online' ? 'camera-video' : ($int->mode === 'physical' ? 'building' : 'telephone') }} me-1"></i>{{ $int->mode }}</span>
                                 </div>
                                 <div class="col-md-6"><small class="text-muted d-block">Status</small><span
-                                        class="badge bg-{{ $int['status'] === 'scheduled' ? 'success' : 'warning' }} rounded-pill small">{{ $int['status'] === 'scheduled' ? 'Confirmed' : 'Pending' }}</span>
+                                        class="badge bg-{{ $int->status === 'scheduled' ? 'success' : 'warning' }} rounded-pill small">{{ $int->status === 'scheduled' ? 'Confirmed' : 'Pending' }}</span>
                                 </div>
                                 <div class="col-md-6"><small class="text-muted d-block">Meeting Link</small>
-                                    @if ($int['meeting_link'])
-                                        <a href="{{ $int['meeting_link'] }}" target="_blank"
+                                    @if ($int->meeting_link)
+                                        <a href="{{ $int->meeting_link }}" target="_blank"
                                         class="text-decoration-none small">Click to Join</a>@else<span
                                             class="text-muted small">Not available</span>
                                     @endif
@@ -1848,9 +1972,9 @@ new class extends Component {
                         <div class="modal-footer border-0 p-4 pt-0 justify-content-center justify-content-md-end">
                             <button type="button" class="btn btn-secondary rounded-pill px-4 small"
                                 wire:click="closeModal">Close</button>
-                            @if ($int['meeting_link'])
+                            @if ($int->meeting_link)
                                 <button type="button" class="btn btn-primary rounded-pill px-4 small"
-                                    wire:click="joinMeeting('{{ $int['meeting_link'] }}')"><i
+                                    wire:click="joinMeeting('{{ $int->meeting_link }}')"><i
                                         class="bi bi-camera-video me-1"></i> Join Meeting</button>
                             @endif
                         </div>
@@ -1870,7 +1994,8 @@ new class extends Component {
                     <div class="modal-content shadow rounded-4 border-0">
                         <div class="modal-header border-0 p-4">
                             <div>
-                                <h5 class="fw-bold mb-1">{{ $offer->jobApplication->jobPosting->designation->name }}
+                                <h5 class="fw-bold mb-1">
+                                    {{ data_get($offer, 'jobApplication.jobPosting.designation.name', '—') }}
                                 </h5>
                             </div>
                             <button type="button" class="btn-close" wire:click="closeModal"></button>
@@ -1878,37 +2003,43 @@ new class extends Component {
                         <div class="modal-body p-4 pt-0">
                             <div class="row g-3">
                                 <div class="col-md-6"><small class="text-muted d-block">Position</small><strong
-                                        class="small">{{ $offer->jobApplication->jobPosting->designation->name }}</strong>
+                                        class="small">{{ data_get($offer, 'jobApplication.jobPosting.designation.name', '—') }}</strong>
                                 </div>
                                 <div class="col-md-6"><small class="text-muted d-block">Department</small><strong
-                                        class="small">{{ $offer->jobApplication->jobPosting->department->name }}</strong>
+                                        class="small">{{ data_get($offer, 'jobApplication.jobPosting.department.name', '—') }}</strong>
                                 </div>
                                 <div class="col-md-6"><small class="text-muted d-block">Salary</small><strong
                                         class="small text-success">{{ $offer->approved_salary ?? $offer->candidate_expected_salary }}</strong>
                                 </div>
                                 <div class="col-md-6"><small class="text-muted d-block">Start Date</small><strong
-                                        class="small">{{ \Carbon\Carbon::parse($offer->contract_start_date)->format('M d, Y') }}</strong>
+                                        class="small">{{ $offer->contract_start_date ? \Carbon\Carbon::parse($offer->contract_start_date)->format('M d, Y') : '—' }}</strong>
                                 </div>
                                 <div class="col-md-6"><small class="text-muted d-block">Offer Expiry</small><strong
-                                        class="small">{{ \Carbon\Carbon::parse($offer->expiry_date)->format('M d, Y') }}</strong>
+                                        class="small">{{ $offer->expiry_date ? \Carbon\Carbon::parse($offer->expiry_date)->format('M d, Y') : '—' }}</strong>
                                 </div>
                                 <div class="col-md-6"><small class="text-muted d-block">Contact Person</small><strong
-                                        class="small">{{ $offer->contact_person }}</strong></div>
+                                        class="small">{{ $offer->contact_person ?? '—' }}</strong></div>
                                 <div class="col-md-6"><small class="text-muted d-block">Contact Email</small><strong
-                                        class="small">{{ $offer->contact_email }}</strong></div>
+                                        class="small">{{ $offer->contact_email ?? '—' }}</strong></div>
                                 <div class="col-md-6"><small class="text-muted d-block">Offer Letter</small>
-
-                                    <a href="{{ route('jobs.offers.letters.download', $offer['id']) }}"
+                                    <a href="{{ route('jobs.offers.letters.download', $offer->id) }}"
                                         class="text-decoration-none small"><i class="bi bi-file-pdf me-1"></i>
                                         Download</a>
-
                                 </div>
                                 <div class="col-12"><small class="text-muted d-block">Benefits</small>
-                                    <p class="small mb-0">{{ implode(',', $offer->benefits) }}</p>
+                                    <p class="small mb-0">
+                                        @if (is_array($offer->benefits))
+                                            {{ implode(',', $offer->benefits) }}
+                                        @elseif (!empty($offer->benefits))
+                                            {{ $offer->benefits }}
+                                        @else
+                                            —
+                                        @endif
+                                    </p>
                                 </div>
-                                @if ($offer->additional_notes ?? false)
+                                @if (!empty($offer->additional_notes))
                                     <div class="col-12"><small class="text-muted d-block">Additional Notes</small>
-                                        <p class="small mb-0">{{ $offer['offer_details']['additional_notes'] }}</p>
+                                        <p class="small mb-0">{{ $offer->additional_notes }}</p>
                                     </div>
                                 @endif
                             </div>
@@ -1918,21 +2049,68 @@ new class extends Component {
                             <button type="button" class="btn btn-secondary rounded-pill px-4 small"
                                 wire:click="closeModal">Close</button>
                             <button type="button" class="btn btn-success rounded-pill px-4 small"
-                                wire:click="openAccept({{ $offer['id'] }})">
+                                wire:click="openAccept({{ $offer->id }})">
                                 <i class="bi bi-check-circle me-1"></i> Accept Offer
                             </button>
                             <button type="button" class="btn btn-outline-warning rounded-pill px-4 small"
-                                wire:click="openNegotiate({{ $offer['id'] }})">
+                                wire:click="openNegotiate({{ $offer->id }})">
                                 <i class="bi bi-currency-dollar me-1"></i> Negotiate
                             </button>
                             <button type="button" class="btn btn-outline-danger rounded-pill px-4 small"
-                                wire:click="openWithdraw({{ $offer['id'] }})">
+                                wire:click="openWithdraw({{ $offer->id }})">
                                 <i class="bi bi-x-circle me-1"></i> Withdraw
                             </button>
                             <button type="button" class="btn btn-outline-dark rounded-pill px-4 small"
-                                wire:click="openDecline({{ $offer['id'] }})">
+                                wire:click="openDecline({{ $offer->id }})">
                                 <i class="bi bi-hand-thumbs-down me-1"></i> Decline
                             </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endif
+    @endif
+
+    {{-- DOCUMENT PREVIEW MODAL (NEW) --}}
+    @if (!is_null($this->selectedDocumentId))
+        @php $doc = collect($this->documents)->firstWhere('id', $this->selectedDocumentId); @endphp
+        @if ($doc)
+            <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5);" tabindex="-1" role="dialog"
+                wire:ignore.self>
+                <div class="modal-dialog modal-dialog-centered modal-lg">
+                    <div class="modal-content shadow rounded-4 border-0">
+                        <div class="modal-header border-0 p-4">
+                            <div>
+                                <h5 class="fw-bold mb-1">{{ str()->headline($doc->document_type) }}</h5>
+                                <small class="text-muted">{{ $doc->file_name }}</small>
+                            </div>
+                            <button type="button" class="btn-close" wire:click="closeDocumentModal"></button>
+                        </div>
+                        <div class="modal-body p-4 pt-0 text-center">
+                            @if (str_starts_with($doc->mime_type, 'image'))
+                                <img src="{{ asset($doc->file_path) }}" class="img-fluid rounded"
+                                    alt="Document Preview">
+                            @elseif ($doc->mime_type === 'application/pdf')
+                                <iframe src="{{ asset($doc->file_path) }}" width="100%" height="500px"
+                                    style="border: none;"></iframe>
+                            @else
+                                <div class="py-5">
+                                    <i class="bi bi-file-earmark-x fs-1 text-muted d-block mb-3"></i>
+                                    <p class="text-muted">Preview not available for this file type.</p>
+                                    <a href="{{ asset($doc->file_path) }}" download
+                                        class="btn btn-primary rounded-pill px-4">
+                                        <i class="bi bi-download me-1"></i> Download File
+                                    </a>
+                                </div>
+                            @endif
+                        </div>
+                        <div class="modal-footer border-0 p-4 pt-0 justify-content-center justify-content-md-end">
+                            <a href="{{ asset($doc->file_path) }}" download
+                                class="btn btn-primary rounded-pill px-4 small">
+                                <i class="bi bi-download me-1"></i> Download
+                            </a>
+                            <button type="button" class="btn btn-secondary rounded-pill px-4 small"
+                                wire:click="closeDocumentModal">Close</button>
                         </div>
                     </div>
                 </div>
@@ -2091,7 +2269,9 @@ new class extends Component {
 <script>
     document.addEventListener('livewire:initialized', () => {
         Livewire.on('show-alert', (event) => {
-            alert(event.message);
+            // Livewire v3 passes the payload as an array
+            const message = Array.isArray(event) ? event[0]?.message : event?.message;
+            if (message) alert(message);
         });
     });
 </script>

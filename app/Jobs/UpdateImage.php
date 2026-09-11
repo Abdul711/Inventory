@@ -74,7 +74,56 @@ class UpdateImage implements ShouldQueue
         'file_path' => 'storage/' . $cnicPath,
         'mime_type' => Storage::disk('public')->mimeType($cnicPath),
     ];
+     if(count($applicant->works) > 0 ){
+       
 
+
+       
+        foreach ($applicant->works as $key => $candidate_exp) {
+            # code...
+        
+       $from = Carbon::parse($candidate_exp['start_date']);
+                    $to = Carbon::parse($candidate_exp['end_date']);
+                    $difference = $from->diff($to);
+                    $year = $difference->y;
+                    $month_of_experience = $year * 12;
+                    $experience = "{$difference->y} years, {$difference->m} months";
+             $pdfexperienceletter = Pdf::loadView('pdf.experience_letter', [
+                        'candidate' => $applicant->full_name,
+                        'gender' =>  $applicant->gender,
+                        'date_of_birth' =>$applicant->date_of_birth,
+                        'company_name' => $candidate_exp['company'],
+                        'from' => $from,
+                    'photo' => $applicant->photo,          
+                        'to' => $to,
+                        'cnic' => $applicant->cnic,
+                        'designation' => $candidate_exp['designation'],
+                        'experience' => $experience,
+                        'father_name' =>  $applicant->father_name,
+                        'applicannt_photo' =>$applicant->photo,
+                    ]);
+
+                    $letter_name = 'experience_letter-' . str()->slug( $applicant->full_name) . time() . $candidate_exp['company'] . '.pdf';
+                    $pathexperience = 'documents/' . str()->slug($applicant->full_name) .'/' . $letter_name;
+                    Storage::disk('public')->put($pathexperience, $pdfexperienceletter->output());
+                    $fullPath = Storage::disk('public')->path($pathexperience);
+                    $mimeType = mime_content_type($fullPath);
+                    $size = filesize($fullPath);
+                       $applicantDocuments[] = [
+                        'applicant_id' => $applicant->id,
+                        'document_type' => 'experience_letter',
+                        'file_name' => 'Experience Letter',
+                        'file_size' => $size,
+                        'file_path' => 'storage/' . $pathexperience,
+                        'mime_type' => $mimeType,
+     
+     
+                        ];
+
+                    
+
+        }
+     }
     /*
     |--------------------------------------------------------------------------
     | Generate Resume PDF
@@ -121,7 +170,7 @@ class UpdateImage implements ShouldQueue
     | Save / update document records
     |--------------------------------------------------------------------------
     */
-
+   
     foreach ($applicantDocuments as $document) {
         ApplicantDocument::updateOrCreate(
             [

@@ -107,5 +107,13 @@ $companyPhone=3001234567;
       $pdf = Pdf::loadView('pdf.jobs.offer_letter', compact('jobOffer','companyEmail','companyLogo'));
       return $pdf->download("Offer Letter".$jobOffer->offer_number.time().".pdf");
 }
+public function applicant(){
+    set_time_limit(0);
+   $applicants=Applicant::get();
+   foreach($applicants as $applicant){
     
+   }
+   
+
+}   
 }
