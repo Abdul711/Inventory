@@ -49,6 +49,7 @@ new class extends Component {
     public $acceptingOfferId = null;
 
     // Education Form Variables
+    public $educations;
     public $showEducationForm = false;
     public $editingEducationId = null;
     public $educationInstitution = '';
@@ -61,6 +62,7 @@ new class extends Component {
     public $educationCurrentlyStudying = false;
 
     // Work Experience Form Variables
+    public $experiences;
     public $showExperienceForm = false;
     public $editingExperienceId = null;
     public $experienceCompany = '';
@@ -79,6 +81,20 @@ new class extends Component {
     ];
 
     // Statistics
+    public function loadEducations()
+    {
+        $this->educations = auth('applicant')->user()->educations;
+    }
+    public function loadExperiences()
+    {
+        $this->experiences = auth('applicant')->user()->works;
+    }
+
+    public function mount()
+    {
+        $this->loadEducations();
+        $this->loadExperiences();
+    }
     public function getStatsProperty()
     {
         return [
@@ -158,16 +174,6 @@ new class extends Component {
     }
 
     // Education Data (replace with DB)
-    public function getEducationsProperty()
-    {
-        return auth('applicant')->user()->educations; // Assume relationship exists
-    }
-
-    // Work Experience Data (replace with DB)
-    public function getExperiencesProperty()
-    {
-        return auth('applicant')->user()->works; // Assume relationship exists
-    }
 
     public function switchTab($tab)
     {
@@ -378,63 +384,157 @@ new class extends Component {
     public function openEducationForm()
     {
         $this->resetEducationForm();
+        $this->resetValidation();
         $this->showEducationForm = true;
     }
 
+    /**
+     * FIXED: Edit education.
+     *
+     * The old implementation read array keys directly (e.g. $education['institute_type']).
+     * Because `$this->educations` is an Eloquent collection, `collect()` converts every
+     * model to a plain array via toArray(). Any key that does not exist on the model
+     * (e.g. `institute_type`, `currently_studying`) raised an "Undefined array key"
+     * warning, which Laravel converts into an ErrorException – so the edit form never
+     * opened. All reads below are null-safe and the form is reset before being filled.
+     */
     public function editEducation($id)
     {
-        $educations = $this->educations;
-        $education = collect($educations)->firstWhere('id', $id);
+        $education = collect($this->educations)->first(function ($item) use ($id) {
+            return (string) data_get($item, 'id') === (string) $id;
+        });
 
-        if ($education) {
-            $this->editingEducationId = $education['id'];
-            $this->educationInstitution = $education['institute'];
-            $this->educationDegree = $education['degree_name'];
-            $this->educationType = $education['institute_type'];
-            $this->educationStartDate = date('Y-m-d', strtotime($education['graduate_start_year']));
-            $this->educationEndDate = date('Y-m-d', strtotime($education['graduate_end_year']));
-            $this->educationGrade = $education['grade'];
-            $this->educationDescription = $education['description'];
-            $this->educationCurrentlyStudying = $education['currently_studying'];
-            $this->showEducationForm = true;
+        if (!$education) {
+            session()->flash('error', 'Education record not found.');
+            return;
         }
+
+        // Clear previous values + validation errors before filling the form
+        $this->resetEducationForm();
+        $this->resetValidation();
+
+        $this->editingEducationId = data_get($education, 'id');
+
+        $this->educationInstitution = (string) (data_get($education, 'institute') ?? (data_get($education, 'institution') ?? ''));
+
+        $this->educationDegree = (string) (data_get($education, 'degree_name') ?? (data_get($education, 'degree') ?? ''));
+
+        // Normalise the institute type so it always matches the <select> options
+        $type = strtolower(trim((string) (data_get($education, 'institute_type') ?? (data_get($education, 'education_type') ?? (data_get($education, 'type') ?? '')))));
+
+        $this->educationType = match (true) {
+            in_array($type, ['school', 'college', 'university'], true) => $type,
+            str_contains($type, 'school') => 'school',
+            str_contains($type, 'college') => 'college',
+            str_contains($type, 'university') => 'university',
+            default => '',
+        };
+
+        $this->educationStartDate = $this->normalizeDate(data_get($education, 'graduate_start_year') ?? data_get($education, 'start_date'));
+
+        $this->educationEndDate = $this->normalizeDate(data_get($education, 'graduate_end_year') ?? data_get($education, 'end_date'));
+
+        $this->educationGrade = (string) (data_get($education, 'grade') ?? '');
+
+        $this->educationDescription = (string) (data_get($education, 'description') ?? '');
+
+        $this->educationCurrentlyStudying = (bool) (data_get($education, 'currently_studying') ?? (data_get($education, 'currently_studying_here') ?? false));
+
+        if ($this->educationCurrentlyStudying) {
+            $this->educationEndDate = '';
+        }
+
+        $this->showEducationForm = true;
+    }
+
+    /**
+     * Safely convert any date-ish value into a "Y-m-d" string for <input type="date">.
+     */
+    private function normalizeDate($value): string
+    {
+        if ($value === null || $value === '') {
+            return '';
+        }
+
+        if ($value instanceof \DateTimeInterface) {
+            return $value->format('Y-m-d');
+        }
+
+        $timestamp = strtotime((string) $value);
+
+        return $timestamp ? date('Y-m-d', $timestamp) : '';
+    }
+    public function updateProfile()
+    {
+        session()->flash('success', 'Profile Updated Successfully');
     }
 
     public function saveEducation()
     {
-        $this->validate([
-            'educationInstitution' => 'required|string|max:255',
-            'educationDegree' => 'required|string|max:255',
-            'educationType' => ['required', Rule::in(['school', 'college', 'university'])],
-            'educationStartDate' => 'required|date',
-            'educationEndDate' => 'nullable|date|after:educationStartDate',
-            'educationGrade' => ['required', 'numeric', Rule::when(in_array($this->educationType, ['school', 'college']), ['integer', 'between:0,100']), Rule::when($this->educationType === 'university', ['between:1,4'])],
-            'educationDescription' => 'nullable|string',
-            'educationCurrentlyStudying' => 'boolean',
-        ]);
+        try {
+            $this->validate([
+                'educationInstitution' => 'required|string|max:255',
+                'educationDegree' => 'required|string|max:255',
+                'educationType' => ['required', Rule::in(['school', 'college', 'university'])],
+                'educationStartDate' => 'required|date',
+                'educationEndDate' => 'nullable|date|after:educationStartDate',
 
-        if ($this->educationCurrentlyStudying) {
-            $this->educationEndDate = null;
+                'educationDescription' => 'nullable|string',
+                'educationCurrentlyStudying' => 'boolean',
+            ]);
+
+            if ($this->educationCurrentlyStudying) {
+                $this->educationEndDate = null;
+            }
+
+            // Save to DB (you need to implement)
+            // ...
+
+            if (!$this->editingEducationId) {
+                \App\Models\ApplicantEducation::create([
+                    'graduate_start_year' => $this->educationStartDate,
+                    'graduate_end_year' => $this->educationEndDate,
+                    'grade' => $this->educationGrade,
+                    'degree_name' => $this->educationDegree,
+                    'institute_type' => $this->educationType,
+                    'institute' => $this->educationInstitution,
+                    'applicant_id' => auth('applicant')->user()->id,
+                ]);
+            } else {
+                \App\Models\ApplicantEducation::where('id', $this->editingEducationId)->update([
+                    'graduate_start_year' => $this->educationStartDate,
+                    'graduate_end_year' => $this->educationEndDate,
+                    'grade' => $this->educationGrade,
+                    'degree_name' => $this->educationDegree,
+                    'institute_type' => $this->educationType,
+                    'institute' => $this->educationInstitution,
+                    'applicant_id' => auth('applicant')->user()->id,
+                ]);
+            }
+
+            session()->flash('success', $this->editingEducationId ? 'Education updated successfully!' : 'Education added successfully!');
+            $this->loadEducations();
+            $this->resetEducationForm();
+            $this->showEducationForm = false;
+        } catch (Exception $e) {
+            dd($e->getMessage());
         }
-
-        // Save to DB (you need to implement)
-        // ...
-
-        session()->flash('success', $this->editingEducationId ? 'Education updated successfully!' : 'Education added successfully!');
-        $this->resetEducationForm();
-        $this->showEducationForm = false;
     }
 
     public function deleteEducation($id)
     {
         // Delete from DB
         // ...
+        \App\Models\ApplicantEducation::where('id', $id)->delete();
+
         session()->flash('success', 'Education entry removed successfully!');
+        $this->loadEducations();
     }
 
     public function cancelEducationForm()
     {
         $this->resetEducationForm();
+        $this->resetValidation();
         $this->showEducationForm = false;
     }
 
@@ -489,7 +589,7 @@ new class extends Component {
             'experienceEndDate' => 'nullable|date|after:experienceStartDate',
             'experienceDescription' => 'nullable|string',
             'experienceCurrentlyWorking' => 'boolean',
-            'experienceEmploymentType' => 'required|in:full_time,part_time,contract,freelance,internship',
+            'experienceEmploymentType' => 'required|in:permanent,part-time,contract,freelance,internship',
         ]);
 
         if ($this->experienceCurrentlyWorking) {
@@ -1400,9 +1500,9 @@ new class extends Component {
                                     </form>
                                 </div>
                             @endif
-                            @if (count($this->experiences) > 0)
+                            @if (count($experiences) > 0)
                                 <div class="row g-3">
-                                    @foreach ($this->experiences as $experience)
+                                    @foreach ($experiences as $experience)
                                         <div class="col-12">
                                             <div
                                                 class="d-flex justify-content-between align-items-start p-3 bg-light rounded-4">
@@ -1558,10 +1658,10 @@ new class extends Component {
                                     </form>
                                 </div>
                             @endif
-                            @if (count($this->educations) > 0)
+                            @if (count($educations) > 0)
                                 <div class="row g-3">
-                                    @foreach ($this->educations as $education)
-                                        <div class="col-12">
+                                    @foreach ($educations as $education)
+                                        <div class="col-12" wire:key="education-{{ $education['id'] }}">
                                             <div
                                                 class="d-flex justify-content-between align-items-start p-3 bg-light rounded-4">
                                                 <div class="flex-grow-1">
